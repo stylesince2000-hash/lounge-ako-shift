@@ -1,0 +1,14 @@
+{
+  "name": "Lounge亜子 シフト",
+  "short_name": "亜子シフト",
+  "start_url": ".",
+  "scope": ".",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#f6efe6",
+  "theme_color": "#6f4e37",
+  "icons": [
+    { "src": "icon.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icon.png", "sizes": "512x512", "type": "image/png", "purpose": "any" }
+  ]
+}
