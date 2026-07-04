@@ -294,6 +294,7 @@ input.pin::placeholder{letter-spacing:10px}
     <div class="topbar">
       <img src="logo-light.png" alt="Lounge亜子" style="height:30px;width:auto;display:block">
       <h1 class="tb-page">シフト希望<span class="sub" id="empWho">スタッフ</span></h1>
+      <button class="dev-btn snd-btn" onclick="toggleSound()" title="操作音のON/OFF">🔊</button>
       <button class="dev-btn" id="empDevBtn" onclick="openDevLog('emp')" style="display:none" title="開発者ログ">🔧</button>
       <button class="logout-btn" onclick="confirmLogout()">🚪 ログアウト</button>
     </div>
@@ -340,6 +341,7 @@ input.pin::placeholder{letter-spacing:10px}
       <img src="logo-light.png" alt="Lounge亜子" style="height:30px;width:auto;display:block">
       <span class="tb-page" style="flex:1"></span>
       <span class="sync-badge" id="syncBadge"></span>
+      <button class="dev-btn snd-btn" onclick="toggleSound()" title="操作音のON/OFF">🔊</button>
       <button class="dev-btn" id="adminDevBtn" onclick="openDevLog('admin')" style="display:none" title="開発者ログ">🔧</button>
       <button class="logout-btn" onclick="confirmLogout()">🚪 ログアウト</button>
     </div>
@@ -465,6 +467,8 @@ const LS_KEY = "cafeShift_v1";
 const ROOM_KEY = "cafeShift_room";
 const PREF_KEY = "cafeShift_remember";  // "1"/"0" : ログイン保持の希望
 const SESS_KEY = "cafeShift_session";   // {role, empId} : 自動ログイン用
+const APP_VERSION = "2026.07.04-1";     // ★デプロイのたびに version.json と同じ値へ上げる（開きっぱなし端末の自動更新用）
+let soundOn = localStorage.getItem("cafeShift_sound")!=="0";  // 操作音 ON/OFF（この端末ごと・既定ON）
 
 /* ===================== STATE ===================== */
 let store = null;          // {staff:[{id,name}], avail:{date:{staffId:{mk,note}}}, schedule:{date:[staffId]}, settings:{empPw,adminPw}}
@@ -1383,6 +1387,57 @@ function confirmResetAvail(){
   persist(); closeModal(); renderAll(); toast("消去しました");
 }
 
+/* ===================== 操作音（Web Audio・音声ファイル不要） ===================== */
+const Snd = (function(){
+  var ctx=null;
+  function ac(){ try{ if(!ctx) ctx=new (window.AudioContext||window.webkitAudioContext)(); if(ctx.state==="suspended") ctx.resume(); return ctx; }catch(e){ return null; } }
+  function tone(freq,dur,type,vol,delay){
+    var c=ac(); if(!c) return;
+    var t0=c.currentTime+(delay||0);
+    var o=c.createOscillator(), g=c.createGain();
+    o.type=type||"sine"; o.frequency.value=freq;
+    g.gain.setValueAtTime(0.0001,t0);
+    g.gain.exponentialRampToValueAtTime(vol||0.1,t0+0.012);
+    g.gain.exponentialRampToValueAtTime(0.0001,t0+dur);
+    o.connect(g); g.connect(c.destination);
+    o.start(t0); o.stop(t0+dur+0.02);
+  }
+  return {
+    tap:function(){ if(soundOn) tone(880,0.09,"sine",0.09); },        // ぽん（一般ボタン）
+    pick:function(){ if(soundOn) tone(1046,0.10,"triangle",0.10); },   // ぴこ（○△×など）
+    good:function(){ if(soundOn){ tone(784,0.10,"sine",0.11,0); tone(1175,0.14,"sine",0.11,0.085); } } // ぴろん（確定/保存）
+  };
+})();
+function refreshSndBtn(){ document.querySelectorAll(".snd-btn").forEach(function(b){ b.textContent = soundOn?"🔊":"🔇"; }); }
+function toggleSound(){ soundOn=!soundOn; localStorage.setItem("cafeShift_sound", soundOn?"1":"0"); refreshSndBtn(); if(soundOn) Snd.tap(); }
+/* ボタン等のタップで軽い操作音（capture段階で拾う） */
+document.addEventListener("click",function(e){
+  var el=e.target.closest("button,[onclick],input[type=checkbox]");
+  if(!el || el.classList.contains("snd-btn")) return;
+  Snd.tap();
+},true);
+
+/* ===================== 自動アップデート（開きっぱなし端末対策） ===================== */
+/* version.json を no-store で取得し、公開中バージョンが動作中と違えば自動リロード。
+   タブに戻った瞬間・フォーカス時・bfcache復帰時に確認するので、開きっぱなしの人が最新に揃う。 */
+function checkForUpdate(){
+  fetch("version.json?_="+Date.now(),{cache:"no-store"})
+    .then(function(r){ return r.ok?r.json():null; })
+    .then(function(j){
+      if(j && j.version && j.version!==APP_VERSION){
+        var k="cafeShift_reloadedFor";
+        if(sessionStorage.getItem(k)===j.version) return;   // 二重リロード防止（万一の無限ループ回避）
+        sessionStorage.setItem(k,j.version);
+        location.reload();
+      }
+    }).catch(function(){});
+}
+document.addEventListener("visibilitychange",function(){ if(!document.hidden) checkForUpdate(); });
+window.addEventListener("focus",checkForUpdate);
+window.addEventListener("pageshow",function(e){ if(e.persisted) checkForUpdate(); });
+setInterval(function(){ if(document.hidden) checkForUpdate(); },180000);  // 3分ごと（非表示時のみリロード）
+setTimeout(checkForUpdate,4000);
+
 /* ===================== INIT ===================== */
 ["pwInput","setEmpPw","setAdminPw"].forEach(id=>{
   const el=document.getElementById(id);
@@ -1390,8 +1445,17 @@ function confirmResetAvail(){
 });
 document.getElementById("pwInput").addEventListener("keydown",e=>{ if(e.key==="Enter") doLogin(); });
 document.getElementById("pwInput").addEventListener("input",function(){ if(this.value.length===4) setTimeout(doLogin,120); });
+/* ===================== ズーム禁止（ピンチ／ダブルタップ） ===================== */
 ["gesturestart","gesturechange","gestureend"].forEach(function(ev){ document.addEventListener(ev,function(e){ e.preventDefault(); },{passive:false}); });
+document.addEventListener("touchstart",function(e){ if(e.touches && e.touches.length>1) e.preventDefault(); },{passive:false});  // ピンチ開始を封じる
 document.addEventListener("touchmove",function(e){ if(e.touches && e.touches.length>1) e.preventDefault(); },{passive:false});
+(function(){ var lt=0,lx=0,ly=0; document.addEventListener("touchend",function(e){   // 同一箇所の素早い2連打（ダブルタップズーム）だけ抑止
+  var now=Date.now(), t=(e.changedTouches&&e.changedTouches[0])||{};
+  if(now-lt<=300 && Math.abs((t.clientX||0)-lx)<32 && Math.abs((t.clientY||0)-ly)<32){ e.preventDefault(); }
+  lt=now; lx=t.clientX||0; ly=t.clientY||0;
+},{passive:false}); })();
+
+refreshSndBtn();
 initCloud();
 setRole("emp");
 // ログイン状態の復元（チェックを外す/ログアウトするまで保持）
