@@ -181,6 +181,13 @@ input.pin::placeholder{letter-spacing:10px}
 .chip.avail-maru .av-s{background:#e3efe7;color:var(--green)}
 .chip.avail-sankaku .av-s{background:#f8ecd9;color:var(--amber)}
 .chip.avail-batsu{opacity:.5}
+.chip.avail-none{opacity:.85}
+.chip.avail-none .av-s{background:var(--foam);color:var(--muted)}
+.daycounts{display:flex;gap:14px;margin:2px 0 10px}
+.daycounts .cnt{font-size:13px;font-weight:700;display:flex;align-items:center;gap:2px}
+.week-label{font-weight:700;color:var(--espresso);font-size:15px;margin:2px 0 12px;padding:9px 12px;background:var(--foam);border-radius:12px;text-align:center}
+.week-closed{display:flex;justify-content:space-between;align-items:center;padding:9px 14px;margin-bottom:8px;border-radius:12px;background:rgba(154,134,120,.10);color:var(--muted);font-size:13px}
+.week-closed .wc-date{font-weight:600}
 .chip.sel{background:var(--coffee);border-color:var(--coffee);color:#fff}
 .chip.sel .av-s{background:rgba(255,255,255,.25);color:#fff}
 .chip .tag{font-size:10px;font-weight:700}
@@ -318,7 +325,7 @@ input.pin::placeholder{letter-spacing:10px}
           </div>
           <div id="empCalWrap" style="display:none">
             <div class="cal">
-              <div class="dow"><span class="sun">日</span><span>月</span><span>火</span><span>水</span><span>木</span><span>金</span><span class="sat">土</span></div>
+              <div class="dow"><span>月</span><span>火</span><span>水</span><span>木</span><span>金</span><span class="sat">土</span><span class="sun">日</span></div>
               <div class="grid" id="empGrid"></div>
             </div>
             <div class="legend">
@@ -348,8 +355,7 @@ input.pin::placeholder{letter-spacing:10px}
     <div class="body">
       <div id="adminNotice"></div>
       <div class="tabs">
-        <button id="tabAgg" class="on" onclick="adminTab('agg')">📊 集計</button>
-        <button id="tabShift" onclick="adminTab('shift')">👥 シフト</button>
+        <button id="tabShift" class="on" onclick="adminTab('shift')">👥 シフト</button>
         <button id="tabClosed" onclick="adminTab('closed')">🚫 店休</button>
         <button id="tabSet" onclick="adminTab('set')">⚙️</button>
       </div>
@@ -360,15 +366,8 @@ input.pin::placeholder{letter-spacing:10px}
         <button onclick="adminMonth(1)">›</button>
       </div>
 
-      <!-- Aggregate -->
-      <div id="svAgg" class="subview active">
-        <div class="sec-title">📊 出勤可能日 集計表</div>
-        <div class="agg" id="aggTable"></div>
-        <div class="count-note">日付をタップすると、その日の希望者と備考が見られます。</div>
-      </div>
-
-      <!-- Shift (merged) -->
-      <div id="svShift" class="subview">
+      <!-- Shift (merged: 集計＋編成＋出勤) -->
+      <div id="svShift" class="subview active">
         <div class="sec-title">👥 シフト編成・出勤者</div>
         <div id="shiftArea"></div>
       </div>
@@ -467,7 +466,7 @@ const LS_KEY = "cafeShift_v1";
 const ROOM_KEY = "cafeShift_room";
 const PREF_KEY = "cafeShift_remember";  // "1"/"0" : ログイン保持の希望
 const SESS_KEY = "cafeShift_session";   // {role, empId} : 自動ログイン用
-const APP_VERSION = "2026.07.04-1";     // ★デプロイのたびに version.json と同じ値へ上げる（開きっぱなし端末の自動更新用）
+const APP_VERSION = "2026.07.04-2";     // ★デプロイのたびに version.json と同じ値へ上げる（開きっぱなし端末の自動更新用）
 let soundOn = localStorage.getItem("cafeShift_sound")!=="0";  // 操作音 ON/OFF（この端末ごと・既定ON）
 
 /* ===================== STATE ===================== */
@@ -482,7 +481,8 @@ let empViewMode = "input";
 let empInputMode = "list";
 let empSchedScope = "mine";   // "mine" | "all"
 let empSchedDisp = "list";   // "list" | "cal" : 従業員 確定シフト表示
-let finalDisp = "list";      // "list" | "cal" : 管理者 出勤表示
+let finalDisp = "list";      // "list" | "cal" : 管理者 出勤表示（旧・未使用）
+let shiftView = "week0";     // "week0"=今週 | "week1"=来週 | "cal"=カレンダー（管理者シフト）
 let adminCursor = new Date();
 let adminView = "agg";
 let cloud = { on:false, ref:null, room:null };
@@ -566,6 +566,14 @@ function updateSyncUI(){
 function esc(s){ return (s||"").replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
 function ymd(d){ return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0"); }
 function monthKey(d){ return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0"); }
+/* 月曜始まりカレンダー用: その月1日の前に入れる空白セル数（月=0…日=6） */
+function leadMon(y,m){ return (new Date(y,m,1).getDay()+6)%7; }
+/* 週の月曜（0:00）を返す */
+function mondayOf(dt){ const d=new Date(dt); d.setHours(0,0,0,0); d.setDate(d.getDate()-((d.getDay()+6)%7)); return d; }
+/* offset週の月〜日の日付(ymd)配列 */
+function weekDates(offset){ const mon=mondayOf(new Date()); mon.setDate(mon.getDate()+offset*7); const a=[]; for(let i=0;i<7;i++){ const d=new Date(mon); d.setDate(mon.getDate()+i); a.push(ymd(d)); } return a; }
+/* 月曜始まりの曜日ヘッダー */
+const DOW_MON_HEADER='<span>月</span><span>火</span><span>水</span><span>木</span><span>金</span><span class="sat">土</span><span class="sun">日</span>';
 function inMonth(dateStr, cur){ return dateStr.startsWith(monthKey(cur)); }
 function initials(name){ return (name||"?").trim().charAt(0).toUpperCase(); }
 function staffById(id){ return store.staff.find(s=>s.id===id); }
@@ -655,7 +663,7 @@ function doLogin(){
   localStorage.setItem(PREF_KEY, remember?"1":"0");
   if(remember) sessionSave(); else localStorage.removeItem(SESS_KEY);
   if(role==="emp"){ currentEmpId=null; show("emp"); renderEmpName(); }
-  else { syncSettingsForm(); show("admin"); adminTab("agg"); renderAll(); }
+  else { syncSettingsForm(); show("admin"); adminTab("shift"); renderAll(); }
 }
 function confirmLogout(){
   openModal('<h3>ログアウトしますか？</h3><p class="msub">ログイン画面に戻ります。次に使うときはパスワードの入力が必要です。</p>'+
@@ -832,9 +840,9 @@ function openDayEdit(ds){
 }
 function scheduleCalGrid(cursor, highlightId, editable){
   const y=cursor.getFullYear(), m=cursor.getMonth();
-  const first=new Date(y,m,1).getDay(), days=new Date(y,m+1,0).getDate();
+  const first=leadMon(y,m), days=new Date(y,m+1,0).getDate();
   const todayStr=ymd(new Date());
-  let h='<div class="cal"><div class="dow"><span class="sun">日</span><span>月</span><span>火</span><span>水</span><span>木</span><span>金</span><span class="sat">土</span></div><div class="grid">';
+  let h='<div class="cal"><div class="dow">'+DOW_MON_HEADER+'</div><div class="grid">';
   for(let i=0;i<first;i++) h+='<div class="day empty"></div>';
   for(let d=1;d<=days;d++){
     const ds=ymd(new Date(y,m,d)); const dow=new Date(ds).getDay();
@@ -947,7 +955,7 @@ function buildEmpGrid(){
   document.getElementById("empMonthLabel").textContent = empCursor.getFullYear()+"年 "+(empCursor.getMonth()+1)+"月";
   const grid=document.getElementById("empGrid");
   const y=empCursor.getFullYear(), m=empCursor.getMonth();
-  const first=new Date(y,m,1).getDay();
+  const first=leadMon(y,m);
   const days=new Date(y,m+1,0).getDate();
   const todayStr=ymd(new Date());
   let h="";
@@ -1022,20 +1030,25 @@ function closeModal(){ document.getElementById("modalBg").classList.remove("show
 /* ===================== ADMIN ===================== */
 function adminTab(t){
   adminView=t;
-  ["agg","shift","closed","set"].forEach(x=>{
+  ["shift","closed","set"].forEach(x=>{
     document.getElementById("tab"+x.charAt(0).toUpperCase()+x.slice(1)).classList.toggle("on",x===t);
     document.getElementById("sv"+x.charAt(0).toUpperCase()+x.slice(1)).classList.toggle("active",x===t);
   });
-  document.getElementById("adminMonthNav").style.display = (t==="set")?"none":"flex";
+  updateMonthNav();
   renderAll();
+}
+/* 月移動ナビ（‹ ○月 ›）は「店休」と「シフトのカレンダー表示」でのみ表示。今週/来週は不要なので隠す */
+function updateMonthNav(){
+  const nav=document.getElementById("adminMonthNav");
+  const show=(adminView==="closed")||(adminView==="shift"&&shiftView==="cal");
+  nav.style.display=show?"flex":"none";
 }
 function adminMonth(d){ adminCursor.setMonth(adminCursor.getMonth()+d); renderAll(); }
 function renderAll(){
   renderNotice(); updateDevUI();
   if(document.getElementById("admin").classList.contains("active")){
     document.getElementById("adminMonthLabel").textContent = adminCursor.getFullYear()+"年 "+(adminCursor.getMonth()+1)+"月";
-    if(adminView==="agg") renderAgg();
-    else if(adminView==="shift") renderShift();
+    if(adminView==="shift") renderShift();
     else if(adminView==="closed") renderClosures();
     else if(adminView==="set") renderStaffManage();
     updateSyncUI();
@@ -1089,7 +1102,7 @@ function scrollToDay(ds){ setTimeout(()=>{ const e=document.getElementById("schd
 function renderClosures(){
   const grid=document.getElementById("closedGrid");
   const y=adminCursor.getFullYear(), m=adminCursor.getMonth();
-  const first=new Date(y,m,1).getDay(), days=new Date(y,m+1,0).getDate();
+  const first=leadMon(y,m), days=new Date(y,m+1,0).getDate();
   const todayStr=ymd(new Date());
   let h="";
   for(let i=0;i<first;i++) h+='<div class="day empty"></div>';
@@ -1119,42 +1132,62 @@ function toggleClosure(ds){
 }
 
 function isOpenException(ds){ return !!(store.opens && store.opens[ds] && defaultClosed(ds)); }
+function setShiftView(v){ shiftView=v; updateMonthNav(); renderShift(); }
 function renderShift(){
   const el=document.getElementById("shiftArea");
-  const disp='<div class="seg" style="margin-bottom:14px">'+
-    '<button class="'+(finalDisp==="list"?"on":"")+'" onclick="setFinalDisp(\'list\')">📋 リスト</button>'+
-    '<button class="'+(finalDisp==="cal"?"on":"")+'" onclick="setFinalDisp(\'cal\')">📅 カレンダー</button></div>';
-  if(finalDisp==="cal"){ el.innerHTML=disp+scheduleCalGrid(adminCursor, null, true)+'<div class="count-note" style="margin-top:10px">数字＝出勤人数。日付タップで出勤者の選択・イベント/伝達事項の編集ができます。</div>'; return; }
-  const dates=monthDates(adminCursor).filter(ds=>!isClosed(ds) && (Object.keys(store.avail[ds]||{}).length>0 || (store.schedule[ds]||[]).length>0 || isOpenException(ds)));
-  let h=disp+'<button class="btn btn-ghost btn-sm" style="margin-bottom:14px" onclick="addSchdDayModal()">＋ 別の日を追加</button>';
-  if(dates.length===0){ h+='<div class="empty-state"><div class="ic">🗓</div>希望入力のある日、または「＋ 別の日を追加」で表示されます。</div>'; el.innerHTML=h; return; }
-  const order={maru:0,sankaku:1,batsu:2};
+  const seg='<div class="seg" style="margin-bottom:14px">'+
+    '<button class="'+(shiftView==="week0"?"on":"")+'" onclick="setShiftView(\'week0\')">今週</button>'+
+    '<button class="'+(shiftView==="week1"?"on":"")+'" onclick="setShiftView(\'week1\')">来週</button>'+
+    '<button class="'+(shiftView==="cal"?"on":"")+'" onclick="setShiftView(\'cal\')">📅 カレンダー</button></div>';
+  if(shiftView==="cal"){
+    el.innerHTML=seg+'<button class="btn btn-ghost btn-sm" style="margin-bottom:14px" onclick="addSchdDayModal()">＋ 別の日を追加</button>'+scheduleCalGrid(adminCursor, null, true)+'<div class="count-note" style="margin-top:10px">数字＝出勤人数。日付タップで出勤者の選択・イベント/伝達事項の編集ができます。</div>';
+    return;
+  }
+  const offset=(shiftView==="week1")?1:0;
+  const dates=weekDates(offset);
+  const a=new Date(dates[0]), b=new Date(dates[6]);
+  const range=(a.getMonth()+1)+'/'+a.getDate()+'(月) 〜 '+(b.getMonth()+1)+'/'+b.getDate()+'(日)';
+  let h=seg+'<div class="week-label">'+(offset?'来週':'今週')+'　'+range+'</div>';
+  h+='<button class="btn btn-ghost btn-sm" style="margin-bottom:14px" onclick="addSchdDayModal()">＋ 別の日を追加（この週以外）</button>';
   dates.forEach(ds=>{
-    const dt=new Date(ds); const rec=store.avail[ds]||{}; const picked=store.schedule[ds]||[];
-    const cands=Object.keys(rec).filter(sid=>rec[sid].mk!=="batsu" && staffById(sid)).sort((x,y)=>order[rec[x].mk]-order[rec[y].mk]);
-    const forced=picked.filter(sid=>staffById(sid) && (!rec[sid] || rec[sid].mk==="batsu"));
-    h+='<div class="card shift-card" id="schd_'+ds+'" style="padding:15px'+(isOpenException(ds)?';border:2px solid var(--green)':'')+'">';
-    h+='<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px"><b style="color:var(--espresso);font-size:16px">📅 '+(dt.getMonth()+1)+'/'+dt.getDate()+' ('+WD[dt.getDay()]+')'+(isOpenException(ds)?' <span class="pill amber">臨時営業</span>':'')+'</b><span class="pill green">確定 '+picked.length+'名</span></div>';
-    h+=eventBox(ds,true);
-    h+='<div class="shift-sub">🙋 出勤する人をタップ</div>';
-    h+='<div class="chips">';
-    if(cands.length===0 && forced.length===0) h+='<span style="color:var(--muted);font-size:13px">希望者がいません。下の「＋ 追加出勤」から入れられます。</span>';
-    cands.forEach(sid=>{ const r=rec[sid]; const s=staffById(sid); const sel=picked.includes(sid);
-      h+='<button class="chip avail-'+r.mk+(sel?' sel':'')+'" onclick="togglePick(\''+ds+'\',\''+sid+'\')" title="'+esc(r.note||'')+'"><span class="av-s">'+MK[r.mk]+'</span>'+esc(s.name)+(r.note?' <span class="tag">📝</span>':'')+'</button>'; });
-    forced.forEach(sid=>{ const s=staffById(sid); const r=rec[sid];
-      h+='<button class="chip sel" style="border-color:var(--latte)" onclick="togglePick(\''+ds+'\',\''+sid+'\')"><span class="av-s">'+(r&&r.mk==="batsu"?MK.batsu:"＋")+'</span>'+esc(s.name)+' <span class="tag">追加</span></button>'; });
-    h+='</div>';
-    h+='<button class="btn btn-ghost btn-sm" style="margin-top:10px" onclick="forceAddModal(\''+ds+'\')">＋ 追加出勤（×・未入力も）</button>';
-    if(picked.length){
-      h+='<div class="shift-divider"></div><div class="shift-sub">🐰 確定メンバー <span style="font-weight:400;color:var(--muted)">（左スワイプで削除・▲▼で並べ替え）</span></div>';
-      h+='<div class="list" style="margin-top:8px">';
-      picked.forEach((sid,idx)=>{ const s=staffById(sid); if(!s) return; const r=(store.avail[ds]||{})[sid]||{}; h+=swipeRow(ds,sid,idx,picked.length,s,r); });
-      h+='</div>';
+    const dt=new Date(ds);
+    if(isClosed(ds)){
+      h+='<div class="week-closed"><span class="wc-date">'+(dt.getMonth()+1)+'/'+dt.getDate()+' ('+WD[dt.getDay()]+')</span><span class="wc-label">🚫 '+closeReason(ds)+'</span></div>';
+      return;
     }
-    h+='</div>';
+    h+=shiftDayCard(ds);
   });
   el.innerHTML=h;
   attachSwipe();
+}
+function shiftDayCard(ds){
+  const dt=new Date(ds); const rec=store.avail[ds]||{}; const picked=store.schedule[ds]||[]; const c=dayCounts(ds);
+  const order={maru:0,sankaku:1,batsu:2,none:3};
+  const sorted=store.staff.slice().sort((x,y)=>{
+    const mx=rec[x.id]?rec[x.id].mk:"none", my=rec[y.id]?rec[y.id].mk:"none";
+    return order[mx]-order[my];
+  });
+  let h='<div class="card shift-card" id="schd_'+ds+'" style="padding:15px'+(isOpenException(ds)?';border:2px solid var(--green)':'')+'">';
+  h+='<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px"><b style="color:var(--espresso);font-size:16px">📅 '+(dt.getMonth()+1)+'/'+dt.getDate()+' ('+WD[dt.getDay()]+')'+(isOpenException(ds)?' <span class="pill amber">臨時営業</span>':'')+'</b><span class="pill green">確定 '+picked.length+'名</span></div>';
+  h+='<div class="daycounts"><span class="cnt g">○'+c.g+'</span><span class="cnt a">△'+c.a+'</span><span class="cnt b">×'+c.b+'</span></div>';
+  h+=eventBox(ds,true);
+  h+='<div class="shift-sub">🙋 出勤する人をタップ（全員表示）</div>';
+  h+='<div class="chips">';
+  if(store.staff.length===0) h+='<span style="color:var(--muted);font-size:13px">スタッフ未登録です。⚙️設定から追加してください。</span>';
+  sorted.forEach(s=>{
+    const r=rec[s.id]; const mk=r?r.mk:null; const sel=picked.includes(s.id);
+    const cls=mk?("avail-"+mk):"avail-none"; const badge=mk?MK[mk]:"—";
+    h+='<button class="chip '+cls+(sel?' sel':'')+'" onclick="togglePick(\''+ds+'\',\''+s.id+'\')" title="'+esc((r&&r.note)||'')+'"><span class="av-s">'+badge+'</span>'+esc(s.name)+((r&&r.note)?' <span class="tag">📝</span>':'')+'</button>';
+  });
+  h+='</div>';
+  if(picked.length){
+    h+='<div class="shift-divider"></div><div class="shift-sub">🐰 確定メンバー <span style="font-weight:400;color:var(--muted)">（左スワイプで削除・▲▼で並べ替え）</span></div>';
+    h+='<div class="list" style="margin-top:8px">';
+    picked.forEach((sid,idx)=>{ const s=staffById(sid); if(!s) return; const r=rec[sid]||{}; h+=swipeRow(ds,sid,idx,picked.length,s,r); });
+    h+='</div>';
+  }
+  h+='</div>';
+  return h;
 }
 function renderSchd(){
   // 編成に表示する日：休業でない日のうち、希望入力あり / 確定あり / 例外営業 のいずれか
@@ -1281,7 +1314,7 @@ function moveShift(ds,idx,dir){
 
 /* swipe to reveal delete */
 function attachSwipe(){
-  document.querySelectorAll("#finalList .row").forEach(row=>{
+  document.querySelectorAll("#finalList .row, #shiftArea .row").forEach(row=>{
     let sx=0, sy=0, cur=0, open=false, dragging=false;
     const W=74;
     row.addEventListener("touchstart",e=>{ sx=e.touches[0].clientX; sy=e.touches[0].clientY; dragging=false; row.style.transition="none"; },{passive:true});
@@ -1464,7 +1497,7 @@ setRole("emp");
   document.getElementById("rememberChk").checked = pref;
   if(!pref) return;
   const sess = sessionGet(); if(!sess) return;
-  if(sess.role==="admin"){ role="admin"; syncSettingsForm(); show("admin"); adminTab("agg"); renderAll(); }
+  if(sess.role==="admin"){ role="admin"; syncSettingsForm(); show("admin"); adminTab("shift"); renderAll(); }
   else { role="emp"; currentEmpId=(sess.empId && staffById(sess.empId))?sess.empId:null; show("emp"); renderEmpName(); }
 })();
 
