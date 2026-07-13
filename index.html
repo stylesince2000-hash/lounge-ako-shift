@@ -161,6 +161,7 @@ input.pin::placeholder{letter-spacing:10px}
 .pill{font-size:11px;font-weight:700;padding:3px 9px;border-radius:20px}
 .pill.green{background:#e3efe7;color:var(--green)}
 .pill.amber{background:#f8ecd9;color:var(--amber)}
+.pill.admin{background:var(--coffee);color:#fff}
 
 /* Aggregate table */
 .agg{background:var(--milk);border-radius:16px;box-shadow:var(--shadow-sm);overflow:hidden}
@@ -466,7 +467,7 @@ const LS_KEY = "cafeShift_v1";
 const ROOM_KEY = "cafeShift_room";
 const PREF_KEY = "cafeShift_remember";  // "1"/"0" : ログイン保持の希望
 const SESS_KEY = "cafeShift_session";   // {role, empId} : 自動ログイン用
-const APP_VERSION = "2026.07.04-2";     // ★デプロイのたびに version.json と同じ値へ上げる（開きっぱなし端末の自動更新用）
+const APP_VERSION = "2026.07.04-3";     // ★デプロイのたびに version.json と同じ値へ上げる（開きっぱなし端末の自動更新用）
 let soundOn = localStorage.getItem("cafeShift_sound")!=="0";  // 操作音 ON/OFF（この端末ごと・既定ON）
 
 /* ===================== STATE ===================== */
@@ -711,9 +712,11 @@ function renderDevLog(){
   logs.forEach(function(e){
     const d=new Date(e.t);
     const dt=d.getFullYear()+'/'+(d.getMonth()+1)+'/'+d.getDate()+' '+String(d.getHours()).padStart(2,"0")+':'+String(d.getMinutes()).padStart(2,"0");
-    const roleLabel=e.dev?"開発者":(e.role==="admin"?"管理者":"従業員");
-    const badge=e.dev?"amber":"green";
-    h+='<div class="card" style="padding:12px 14px"><div style="display:flex;justify-content:space-between;align-items:center"><b style="font-size:14px;color:var(--espresso)">'+dt+'</b><span class="pill '+badge+'">'+roleLabel+'</span></div>'+(e.name?'<div style="font-size:13.5px;color:var(--espresso);font-weight:500;margin-top:4px">👤 '+esc(e.name)+'</div>':'')+'<div style="font-size:12.5px;color:var(--muted);margin-top:5px">📍 '+esc(e.loc||"不明")+(e.ip?' ・ IP '+esc(e.ip):'')+'</div></div>';
+    const isAdmin=(e.role==="admin" && !e.dev);
+    const roleLabel=e.dev?"🔧 開発者":(isAdmin?"🔑 管理者":"従業員");
+    const badge=e.dev?"amber":(isAdmin?"admin":"green");
+    const cardStyle="padding:12px 14px"+(isAdmin?";border:1.6px solid var(--coffee);background:#f3ece2":"");
+    h+='<div class="card" style="'+cardStyle+'"><div style="display:flex;justify-content:space-between;align-items:center"><b style="font-size:14px;color:var(--espresso)">'+dt+'</b><span class="pill '+badge+'">'+roleLabel+'</span></div>'+(e.name?'<div style="font-size:13.5px;color:var(--espresso);font-weight:500;margin-top:4px">👤 '+esc(e.name)+'</div>':'')+'<div style="font-size:12.5px;color:var(--muted);margin-top:5px">📍 '+esc(e.loc||"不明")+(e.ip?' ・ IP '+esc(e.ip):'')+'</div></div>';
   });
   h+='</div>';
   el.innerHTML=h;
@@ -1176,7 +1179,7 @@ function shiftDayCard(ds){
   if(store.staff.length===0) h+='<span style="color:var(--muted);font-size:13px">スタッフ未登録です。⚙️設定から追加してください。</span>';
   sorted.forEach(s=>{
     const r=rec[s.id]; const mk=r?r.mk:null; const sel=picked.includes(s.id);
-    const cls=mk?("avail-"+mk):"avail-none"; const badge=mk?MK[mk]:"—";
+    const cls=mk?("avail-"+mk):"avail-none"; const badge=mk?MK[mk]:"?";
     h+='<button class="chip '+cls+(sel?' sel':'')+'" onclick="togglePick(\''+ds+'\',\''+s.id+'\')" title="'+esc((r&&r.note)||'')+'"><span class="av-s">'+badge+'</span>'+esc(s.name)+((r&&r.note)?' <span class="tag">📝</span>':'')+'</button>';
   });
   h+='</div>';
