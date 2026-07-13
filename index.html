@@ -181,9 +181,10 @@ input.pin::placeholder{letter-spacing:10px}
 .chip .av-s{width:26px;height:26px;border-radius:8px;background:var(--foam);color:var(--coffee);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700}
 .chip.avail-maru .av-s{background:#e3efe7;color:var(--green)}
 .chip.avail-sankaku .av-s{background:#f8ecd9;color:var(--amber)}
-.chip.avail-batsu{opacity:.5}
-.chip.avail-none{opacity:.85}
-.chip.avail-none .av-s{background:var(--foam);color:var(--muted)}
+.chip.avail-batsu{opacity:.62}
+.chip.avail-batsu .av-s{background:#f6dede;color:var(--rose)}
+.chip.avail-none{opacity:.9}
+.chip.avail-none .av-s{background:#ece5db;color:var(--muted);border:1.5px dashed var(--latte)}
 .daycounts{display:flex;gap:14px;margin:2px 0 10px}
 .daycounts .cnt{font-size:13px;font-weight:700;display:flex;align-items:center;gap:2px}
 .week-label{font-weight:700;color:var(--espresso);font-size:15px;margin:2px 0 12px;padding:9px 12px;background:var(--foam);border-radius:12px;text-align:center}
@@ -467,7 +468,7 @@ const LS_KEY = "cafeShift_v1";
 const ROOM_KEY = "cafeShift_room";
 const PREF_KEY = "cafeShift_remember";  // "1"/"0" : ログイン保持の希望
 const SESS_KEY = "cafeShift_session";   // {role, empId} : 自動ログイン用
-const APP_VERSION = "2026.07.04-3";     // ★デプロイのたびに version.json と同じ値へ上げる（開きっぱなし端末の自動更新用）
+const APP_VERSION = "2026.07.04-4";     // ★デプロイのたびに version.json と同じ値へ上げる（開きっぱなし端末の自動更新用）
 let soundOn = localStorage.getItem("cafeShift_sound")!=="0";  // 操作音 ON/OFF（この端末ごと・既定ON）
 
 /* ===================== STATE ===================== */
