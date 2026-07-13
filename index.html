@@ -181,7 +181,7 @@ input.pin::placeholder{letter-spacing:10px}
 .chip .av-s{width:26px;height:26px;border-radius:8px;background:var(--foam);color:var(--coffee);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700}
 .chip.avail-maru .av-s{background:#e3efe7;color:var(--green)}
 .chip.avail-sankaku .av-s{background:#f8ecd9;color:var(--amber)}
-.chip.avail-batsu{opacity:.62}
+.chip.avail-batsu{opacity:.45}
 .chip.avail-batsu .av-s{background:#f6dede;color:var(--rose)}
 .chip.avail-none{opacity:.9}
 .chip.avail-none .av-s{background:#ece5db;color:var(--muted);border:1.5px dashed var(--latte)}
@@ -468,7 +468,7 @@ const LS_KEY = "cafeShift_v1";
 const ROOM_KEY = "cafeShift_room";
 const PREF_KEY = "cafeShift_remember";  // "1"/"0" : ログイン保持の希望
 const SESS_KEY = "cafeShift_session";   // {role, empId} : 自動ログイン用
-const APP_VERSION = "2026.07.04-4";     // ★デプロイのたびに version.json と同じ値へ上げる（開きっぱなし端末の自動更新用）
+const APP_VERSION = "2026.07.04-5";     // ★デプロイのたびに version.json と同じ値へ上げる（開きっぱなし端末の自動更新用）
 let soundOn = localStorage.getItem("cafeShift_sound")!=="0";  // 操作音 ON/OFF（この端末ごと・既定ON）
 
 /* ===================== STATE ===================== */
@@ -691,6 +691,18 @@ function recordLogin(roleIn, dev){
     if(e){ e.loc=loc; e.ip=g.ip||""; persist(); if(document.getElementById("devlog").classList.contains("active")) renderDevLog(); }
   }).catch(function(){ const e=(store.loginLog||[]).find(function(x){return x.id===entry.id;}); if(e){ e.loc="不明（取得失敗）"; persist(); } });
 }
+function recordPwChange(whichLabel){
+  if(!Array.isArray(store.loginLog)) store.loginLog=[];
+  const entry={ id:uid(), t:Date.now(), type:"pwchange", which:whichLabel, loc:"取得中…", ip:"" };
+  store.loginLog.push(entry);
+  if(store.loginLog.length>200) store.loginLog=store.loginLog.slice(-200);
+  persist();
+  fetch("https://get.geojs.io/v1/ip/geo.json").then(function(r){return r.json();}).then(function(g){
+    const loc=[g.city,g.region,g.country].filter(Boolean).join(", ")||"不明";
+    const e=(store.loginLog||[]).find(function(x){return x.id===entry.id;});
+    if(e){ e.loc=loc; e.ip=g.ip||""; persist(); if(document.getElementById("devlog").classList.contains("active")) renderDevLog(); }
+  }).catch(function(){ const e=(store.loginLog||[]).find(function(x){return x.id===entry.id;}); if(e){ e.loc="不明（取得失敗）"; persist(); } });
+}
 function tagLoginName(){
   if(!lastLoginId) return;
   const nm=(staffById(currentEmpId)||{}).name;
@@ -713,6 +725,10 @@ function renderDevLog(){
   logs.forEach(function(e){
     const d=new Date(e.t);
     const dt=d.getFullYear()+'/'+(d.getMonth()+1)+'/'+d.getDate()+' '+String(d.getHours()).padStart(2,"0")+':'+String(d.getMinutes()).padStart(2,"0");
+    if(e.type==="pwchange"){
+      h+='<div class="card" style="padding:12px 14px;border:1.6px solid var(--rose);background:#fbeff0"><div style="display:flex;justify-content:space-between;align-items:center"><b style="font-size:14px;color:var(--espresso)">'+dt+'</b><span class="pill" style="background:var(--rose);color:#fff">🔑 PW変更</span></div><div style="font-size:13.5px;color:var(--espresso);font-weight:500;margin-top:4px">🔑 '+esc(e.which||"")+' のパスワードを変更</div><div style="font-size:12.5px;color:var(--muted);margin-top:5px">📍 '+esc(e.loc||"不明")+(e.ip?' ・ IP '+esc(e.ip):'')+'</div></div>';
+      return;
+    }
     const isAdmin=(e.role==="admin" && !e.dev);
     const roleLabel=e.dev?"🔧 開発者":(isAdmin?"🔑 管理者":"従業員");
     const badge=e.dev?"amber":(isAdmin?"admin":"green");
@@ -1400,7 +1416,12 @@ function savePasswords(){
   const a=document.getElementById("setAdminPw").value.trim();
   if(!/^\d{4}$/.test(e)||!/^\d{4}$/.test(a)){ toast("数字4桁で入力してください"); return; }
   if(e===a){ toast("従業員と管理者は別の番号にしてください"); return; }
-  store.settings.empPw=e; store.settings.adminPw=a; persist(); toast("パスワードを保存しました");
+  const empChanged=(e!==store.settings.empPw), adminChanged=(a!==store.settings.adminPw);
+  store.settings.empPw=e; store.settings.adminPw=a; persist();
+  if(empChanged||adminChanged){
+    recordPwChange((empChanged&&adminChanged)?"従業員・管理者":(adminChanged?"管理者":"従業員"));
+  }
+  toast("パスワードを保存しました");
 }
 function saveRoom(){
   const r=document.getElementById("setRoomId").value.trim();
