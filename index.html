@@ -188,8 +188,9 @@ input.pin::placeholder{letter-spacing:10px}
 .daycounts{display:flex;gap:14px;margin:2px 0 10px}
 .daycounts .cnt{font-size:13px;font-weight:700;display:flex;align-items:center;gap:2px}
 .week-label{font-weight:700;color:var(--espresso);font-size:15px;margin:2px 0 12px;padding:9px 12px;background:var(--foam);border-radius:12px;text-align:center}
-.week-closed{display:flex;justify-content:space-between;align-items:center;padding:9px 14px;margin-bottom:8px;border-radius:12px;background:rgba(154,134,120,.10);color:var(--muted);font-size:13px}
-.week-closed .wc-date{font-weight:600}
+.week-closed{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:12px 16px;margin-bottom:9px;border-radius:14px;background:repeating-linear-gradient(-45deg,#f7eded,#f7eded 8px,#f2e3e3 8px,#f2e3e3 16px);border:1.5px solid #e6cccc;color:var(--rose);font-size:14.5px;font-weight:700}
+.week-closed .wc-date{font-weight:800;color:var(--espresso)}
+.week-closed .wc-label{background:var(--rose);color:#fff;padding:3px 11px;border-radius:20px;font-size:12.5px;white-space:nowrap}
 .chip.sel{background:var(--coffee);border-color:var(--coffee);color:#fff}
 .chip.sel .av-s{background:rgba(255,255,255,.25);color:#fff}
 .chip .tag{font-size:10px;font-weight:700}
@@ -468,7 +469,7 @@ const LS_KEY = "cafeShift_v1";
 const ROOM_KEY = "cafeShift_room";
 const PREF_KEY = "cafeShift_remember";  // "1"/"0" : ログイン保持の希望
 const SESS_KEY = "cafeShift_session";   // {role, empId} : 自動ログイン用
-const APP_VERSION = "2026.07.04-9";     // ★デプロイのたびに version.json と同じ値へ上げる（開きっぱなし端末の自動更新用）
+const APP_VERSION = "2026.07.04-10";     // ★デプロイのたびに version.json と同じ値へ上げる（開きっぱなし端末の自動更新用）
 let soundOn = localStorage.getItem("cafeShift_sound")!=="0";  // 操作音 ON/OFF（この端末ごと・既定ON）
 
 /* ===================== STATE ===================== */
@@ -1172,7 +1173,7 @@ function renderShift(){
   dates.forEach(ds=>{
     const dt=new Date(ds);
     if(isClosed(ds)){
-      h+='<div class="week-closed"><span class="wc-date">'+(dt.getMonth()+1)+'/'+dt.getDate()+' ('+WD[dt.getDay()]+')</span><span class="wc-label">🚫 '+closeReason(ds)+'</span></div>';
+      h+='<div class="week-closed"><span class="wc-date">🌙 '+(dt.getMonth()+1)+'/'+dt.getDate()+' ('+WD[dt.getDay()]+') はお休み</span><span class="wc-label">🚫 '+closeReason(ds)+'日</span></div>';
       return;
     }
     h+=shiftDayCard(ds);
