@@ -129,11 +129,11 @@ input.pin::placeholder{letter-spacing:10px}
 .day .note-dot{position:absolute;top:5px;right:6px;width:6px;height:6px;border-radius:50%;background:var(--latte)}
 .day .ev-mark{position:absolute;top:2px;left:3px;font-size:9px;line-height:1}
 .day:active{transform:scale(.94)}
-.day.closed{background:repeating-linear-gradient(45deg,#ece3d6,#ece3d6 5px,#e4d9c8 5px,#e4d9c8 10px)}
-.day.closed .dn{color:var(--muted)}
-.day.closed .mk{color:var(--muted)}
-.day .clbl{font-size:9px;font-weight:700;line-height:1;margin-top:2px;letter-spacing:.5px}
-.day.closed .clbl{color:var(--muted)}
+.day.closed{background:repeating-linear-gradient(45deg,#f7eded,#f7eded 5px,#f0dede 5px,#f0dede 10px);border-color:#ecd2d2}
+.day.closed .dn{color:var(--rose)}
+.day.closed .mk{color:var(--rose)}
+.day .clbl{font-size:9.5px;font-weight:700;line-height:1;margin-top:2px;letter-spacing:.3px}
+.day.closed .clbl{color:#fff;background:var(--rose);padding:1px 5px;border-radius:8px}
 .day.openx{border-color:var(--green);background:#e3efe7}
 .day.openx .clbl{color:var(--green)}
 .day.openx .dn{color:var(--green)}
@@ -469,7 +469,7 @@ const LS_KEY = "cafeShift_v1";
 const ROOM_KEY = "cafeShift_room";
 const PREF_KEY = "cafeShift_remember";  // "1"/"0" : ログイン保持の希望
 const SESS_KEY = "cafeShift_session";   // {role, empId} : 自動ログイン用
-const APP_VERSION = "2026.07.04-10";     // ★デプロイのたびに version.json と同じ値へ上げる（開きっぱなし端末の自動更新用）
+const APP_VERSION = "2026.07.04-11";     // ★デプロイのたびに version.json と同じ値へ上げる（開きっぱなし端末の自動更新用）
 let soundOn = localStorage.getItem("cafeShift_sound")!=="0";  // 操作音 ON/OFF（この端末ごと・既定ON）
 
 /* ===================== STATE ===================== */
