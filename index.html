@@ -184,7 +184,7 @@ input.pin::placeholder{letter-spacing:10px}
 .chip.avail-batsu{opacity:.45}
 .chip.avail-batsu .av-s{background:#ece5db;color:var(--muted)}
 .chip.avail-none{opacity:1}
-.chip.avail-none .av-s{background:#fff;color:#333;border:1.5px dashed #999}
+.chip.avail-none .av-s{background:#fff;color:#000;border:1.5px dashed #000}
 .daycounts{display:flex;gap:14px;margin:2px 0 10px}
 .daycounts .cnt{font-size:13px;font-weight:700;display:flex;align-items:center;gap:2px}
 .week-label{font-weight:700;color:var(--espresso);font-size:15px;margin:2px 0 12px;padding:9px 12px;background:var(--foam);border-radius:12px;text-align:center}
@@ -468,7 +468,7 @@ const LS_KEY = "cafeShift_v1";
 const ROOM_KEY = "cafeShift_room";
 const PREF_KEY = "cafeShift_remember";  // "1"/"0" : ログイン保持の希望
 const SESS_KEY = "cafeShift_session";   // {role, empId} : 自動ログイン用
-const APP_VERSION = "2026.07.04-7";     // ★デプロイのたびに version.json と同じ値へ上げる（開きっぱなし端末の自動更新用）
+const APP_VERSION = "2026.07.04-8";     // ★デプロイのたびに version.json と同じ値へ上げる（開きっぱなし端末の自動更新用）
 let soundOn = localStorage.getItem("cafeShift_sound")!=="0";  // 操作音 ON/OFF（この端末ごと・既定ON）
 
 /* ===================== STATE ===================== */
