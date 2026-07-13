@@ -469,7 +469,7 @@ const LS_KEY = "cafeShift_v1";
 const ROOM_KEY = "cafeShift_room";
 const PREF_KEY = "cafeShift_remember";  // "1"/"0" : ログイン保持の希望
 const SESS_KEY = "cafeShift_session";   // {role, empId} : 自動ログイン用
-const APP_VERSION = "2026.07.04-11";     // ★デプロイのたびに version.json と同じ値へ上げる（開きっぱなし端末の自動更新用）
+const APP_VERSION = "2026.07.04-12";     // ★デプロイのたびに version.json と同じ値へ上げる（開きっぱなし端末の自動更新用）
 let soundOn = localStorage.getItem("cafeShift_sound")!=="0";  // 操作音 ON/OFF（この端末ごと・既定ON）
 
 /* ===================== STATE ===================== */
@@ -1169,6 +1169,9 @@ function renderShift(){
   const a=new Date(dates[0]), b=new Date(dates[6]);
   const range=(a.getMonth()+1)+'/'+a.getDate()+'(月) 〜 '+(b.getMonth()+1)+'/'+b.getDate()+'(日)';
   let h=seg+'<div class="week-label">'+(offset?'来週':'今週')+'　'+range+'</div>';
+  h+='<div style="display:flex;gap:8px;margin-bottom:12px">'+
+     '<button class="btn btn-primary btn-sm" style="flex:1" onclick="copyWeekText('+offset+')">📋 テキストでコピー</button>'+
+     '<button class="btn btn-ghost btn-sm" style="flex:1" onclick="shareWeekImage('+offset+')">🖼 画像で共有</button></div>';
   h+='<button class="btn btn-ghost btn-sm" style="margin-bottom:14px" onclick="addSchdDayModal()">＋ 別の日を追加（この週以外）</button>';
   dates.forEach(ds=>{
     const dt=new Date(ds);
@@ -1209,6 +1212,74 @@ function shiftDayCard(ds){
   }
   h+='</div>';
   return h;
+}
+/* ===================== 週シフトのコピー / 画像共有（LINE貼り付け用） ===================== */
+function weekShiftText(offset){
+  const dates=weekDates(offset);
+  const a=new Date(dates[0]), b=new Date(dates[6]);
+  const lines=[];
+  lines.push("【Lounge亜子 シフト】"+(offset?"来週":"今週"));
+  lines.push((a.getMonth()+1)+"/"+a.getDate()+"(月)〜"+(b.getMonth()+1)+"/"+b.getDate()+"(日)");
+  lines.push("");
+  dates.forEach(function(ds){
+    const dt=new Date(ds);
+    const head=(dt.getMonth()+1)+"/"+dt.getDate()+"("+WD[dt.getDay()]+")";
+    if(isClosed(ds)){ lines.push(head+" 🚫"+closeReason(ds)); return; }
+    const arr=(store.schedule[ds]||[]).map(function(sid){return (staffById(sid)||{}).name;}).filter(Boolean);
+    lines.push(head+" "+(arr.length?arr.join("、"):"（未定）"));
+    const ev=(store.events||{})[ds]; if(ev) lines.push("　📌"+ev);
+  });
+  if(store.notice && store.notice.trim()){ lines.push(""); lines.push("📢"+store.notice.trim()); }
+  return lines.join("\n");
+}
+function copyWeekText(offset){
+  const t=weekShiftText(offset);
+  const done=function(){ if(soundOn&&Snd.good) Snd.good(); toast("コピーしました！LINEに貼り付けてください"); };
+  if(navigator.clipboard && navigator.clipboard.writeText){
+    navigator.clipboard.writeText(t).then(done).catch(function(){ copyFallback(t,done); });
+  } else copyFallback(t,done);
+}
+function copyFallback(t,done){
+  const ta=document.createElement("textarea"); ta.value=t; ta.style.position="fixed"; ta.style.top="-1000px"; document.body.appendChild(ta); ta.focus(); ta.select();
+  let ok=false; try{ ok=document.execCommand("copy"); }catch(e){}
+  document.body.removeChild(ta);
+  if(ok) done(); else openModal('<h3>コピー</h3><p class="msub">下のテキストを長押しして全選択→コピーし、LINEに貼り付けてください。</p><textarea readonly rows="10" style="width:100%;font-size:13px" onclick="this.select()">'+esc(t)+'</textarea><button class="btn btn-primary" style="margin-top:12px" onclick="closeModal()">閉じる</button>');
+}
+function shareWeekImage(offset){
+  const dates=weekDates(offset);
+  const scale=2, W=720, pad=44, rowH=62, headH=150, H=headH+dates.length*rowH+40;
+  const cv=document.createElement("canvas"); cv.width=W*scale; cv.height=H*scale;
+  const ctx=cv.getContext("2d"); ctx.scale(scale,scale); ctx.textBaseline="middle";
+  ctx.fillStyle="#f6efe6"; ctx.fillRect(0,0,W,H);
+  const a=new Date(dates[0]), b=new Date(dates[6]);
+  ctx.fillStyle="#4a342a"; ctx.font="bold 30px sans-serif";
+  ctx.fillText("Lounge亜子 "+(offset?"来週":"今週")+"のシフト", pad, 52);
+  ctx.fillStyle="#6f4e37"; ctx.font="500 20px sans-serif";
+  ctx.fillText((a.getMonth()+1)+"/"+a.getDate()+"(月) 〜 "+(b.getMonth()+1)+"/"+b.getDate()+"(日)", pad, 92);
+  ctx.strokeStyle="#e0d3c2"; ctx.lineWidth=1; ctx.beginPath(); ctx.moveTo(pad,122); ctx.lineTo(W-pad,122); ctx.stroke();
+  let y=headH;
+  dates.forEach(function(ds){
+    const dt=new Date(ds), dow=dt.getDay(), closed=isClosed(ds);
+    if(closed){ ctx.fillStyle="#f4e6e6"; ctx.fillRect(pad-12,y-rowH/2+4,W-2*(pad-12),rowH-8); }
+    ctx.fillStyle= dow===0?"#c1666b":(dow===6?"#5a7d9a":"#4a342a"); ctx.font="bold 22px sans-serif";
+    ctx.fillText((dt.getMonth()+1)+"/"+dt.getDate()+" ("+WD[dow]+")", pad, y);
+    ctx.font="500 21px sans-serif";
+    if(closed){ ctx.fillStyle="#c1666b"; ctx.fillText("🚫 "+closeReason(ds), pad+180, y); }
+    else {
+      const arr=(store.schedule[ds]||[]).map(function(sid){return (staffById(sid)||{}).name;}).filter(Boolean);
+      ctx.fillStyle= arr.length?"#3b2f2a":"#b0a090"; ctx.fillText(arr.length?arr.join("、"):"（未定）", pad+180, y);
+    }
+    y+=rowH;
+  });
+  cv.toBlob(function(blob){
+    if(!blob){ toast("画像を作れませんでした"); return; }
+    const file=new File([blob],(offset?"来週":"今週")+"シフト.png",{type:"image/png"});
+    if(navigator.canShare && navigator.canShare({files:[file]}) && navigator.share){
+      navigator.share({files:[file], title:"シフト"}).then(function(){ if(soundOn&&Snd.good) Snd.good(); }).catch(function(){});
+    } else {
+      const url=URL.createObjectURL(blob); const a2=document.createElement("a"); a2.href=url; a2.download=file.name; a2.click(); setTimeout(function(){URL.revokeObjectURL(url);},1500); toast("画像を保存しました。LINEで送ってください");
+    }
+  }, "image/png");
 }
 function renderSchd(){
   // 編成に表示する日：休業でない日のうち、希望入力あり / 確定あり / 例外営業 のいずれか
