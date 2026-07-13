@@ -469,7 +469,7 @@ const LS_KEY = "cafeShift_v1";
 const ROOM_KEY = "cafeShift_room";
 const PREF_KEY = "cafeShift_remember";  // "1"/"0" : ログイン保持の希望
 const SESS_KEY = "cafeShift_session";   // {role, empId} : 自動ログイン用
-const APP_VERSION = "2026.07.04-13";     // ★デプロイのたびに version.json と同じ値へ上げる（開きっぱなし端末の自動更新用）
+const APP_VERSION = "2026.07.04-14";     // ★デプロイのたびに version.json と同じ値へ上げる（開きっぱなし端末の自動更新用）
 let soundOn = localStorage.getItem("cafeShift_sound")!=="0";  // 操作音 ON/OFF（この端末ごと・既定ON）
 
 /* ===================== STATE ===================== */
@@ -1169,9 +1169,7 @@ function renderShift(){
   const a=new Date(dates[0]), b=new Date(dates[6]);
   const range=(a.getMonth()+1)+'/'+a.getDate()+'(月) 〜 '+(b.getMonth()+1)+'/'+b.getDate()+'(日)';
   let h=seg+'<div class="week-label">'+(offset?'来週':'今週')+'　'+range+'</div>';
-  h+='<div style="display:flex;gap:8px;margin-bottom:12px">'+
-     '<button class="btn btn-primary btn-sm" style="flex:1" onclick="copyWeekText('+offset+')">📋 テキストでコピー</button>'+
-     '<button class="btn btn-ghost btn-sm" style="flex:1" onclick="shareWeekImage('+offset+')">🖼 画像で共有</button></div>';
+  h+='<button class="btn btn-primary btn-sm" style="width:100%;display:flex;align-items:center;justify-content:center;gap:8px;margin-bottom:12px" onclick="copyWeekText('+offset+')"><svg width="19" height="19" viewBox="0 0 24 24" style="flex-shrink:0"><rect width="24" height="24" rx="6" fill="#06C755"/><path d="M12 6C8.1 6 5 8.5 5 11.5c0 2.7 2.5 5 5.9 5.5.5.4-.2 1.7-.1 2 .1.4.4.3.7.2 2.6-1.5 5.5-3.6 6.4-5.3.7-.9 1.1-1.8 1.1-2.4C19 8.5 15.9 6 12 6z" fill="#fff"/></svg>LINE用にコピーする</button>';
   dates.forEach(ds=>{
     const dt=new Date(ds);
     if(isClosed(ds)){
@@ -1229,11 +1227,13 @@ function weekShiftText(offset){
     const ev=(store.events||{})[ds]; if(ev) lines.push("　📌"+ev);
   });
   if(store.notice && store.notice.trim()){ lines.push(""); lines.push("📢"+store.notice.trim()); }
+  lines.push("");
+  lines.push("詳細はシフトアプリで確認してください");
   return lines.join("\n");
 }
 function copyWeekText(offset){
   const t=weekShiftText(offset);
-  const done=function(){ if(soundOn&&Snd.good) Snd.good(); toast("コピーしました！LINEに貼り付けてください"); };
+  const done=function(){ if(soundOn&&Snd.good) Snd.good(); toast("クリップボードにコピーしました"); };
   if(navigator.clipboard && navigator.clipboard.writeText){
     navigator.clipboard.writeText(t).then(done).catch(function(){ copyFallback(t,done); });
   } else copyFallback(t,done);
