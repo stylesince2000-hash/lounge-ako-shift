@@ -469,7 +469,7 @@ const LS_KEY = "cafeShift_v1";
 const ROOM_KEY = "cafeShift_room";
 const PREF_KEY = "cafeShift_remember";  // "1"/"0" : ログイン保持の希望
 const SESS_KEY = "cafeShift_session";   // {role, empId} : 自動ログイン用
-const APP_VERSION = "2026.07.04-12";     // ★デプロイのたびに version.json と同じ値へ上げる（開きっぱなし端末の自動更新用）
+const APP_VERSION = "2026.07.04-13";     // ★デプロイのたびに version.json と同じ値へ上げる（開きっぱなし端末の自動更新用）
 let soundOn = localStorage.getItem("cafeShift_sound")!=="0";  // 操作音 ON/OFF（この端末ごと・既定ON）
 
 /* ===================== STATE ===================== */
@@ -1161,7 +1161,7 @@ function renderShift(){
     '<button class="'+(shiftView==="week1"?"on":"")+'" onclick="setShiftView(\'week1\')">来週</button>'+
     '<button class="'+(shiftView==="cal"?"on":"")+'" onclick="setShiftView(\'cal\')">📅 カレンダー</button></div>';
   if(shiftView==="cal"){
-    el.innerHTML=seg+'<button class="btn btn-ghost btn-sm" style="margin-bottom:14px" onclick="addSchdDayModal()">＋ 別の日を追加</button>'+scheduleCalGrid(adminCursor, null, true)+'<div class="count-note" style="margin-top:10px">数字＝出勤人数。日付タップで出勤者の選択・イベント/伝達事項の編集ができます。</div>';
+    el.innerHTML=seg+scheduleCalGrid(adminCursor, null, true)+'<div class="count-note" style="margin-top:10px">数字＝出勤人数。日付タップで出勤者の選択・イベント/伝達事項の編集ができます。</div>';
     return;
   }
   const offset=(shiftView==="week1")?1:0;
@@ -1172,7 +1172,6 @@ function renderShift(){
   h+='<div style="display:flex;gap:8px;margin-bottom:12px">'+
      '<button class="btn btn-primary btn-sm" style="flex:1" onclick="copyWeekText('+offset+')">📋 テキストでコピー</button>'+
      '<button class="btn btn-ghost btn-sm" style="flex:1" onclick="shareWeekImage('+offset+')">🖼 画像で共有</button></div>';
-  h+='<button class="btn btn-ghost btn-sm" style="margin-bottom:14px" onclick="addSchdDayModal()">＋ 別の日を追加（この週以外）</button>';
   dates.forEach(ds=>{
     const dt=new Date(ds);
     if(isClosed(ds)){
