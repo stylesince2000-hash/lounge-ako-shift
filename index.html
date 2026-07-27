@@ -469,7 +469,7 @@ const LS_KEY = "cafeShift_v1";
 const ROOM_KEY = "cafeShift_room";
 const PREF_KEY = "cafeShift_remember";  // "1"/"0" : ログイン保持の希望
 const SESS_KEY = "cafeShift_session";   // {role, empId} : 自動ログイン用
-const APP_VERSION = "2026.07.04-14";     // ★デプロイのたびに version.json と同じ値へ上げる（開きっぱなし端末の自動更新用）
+const APP_VERSION = "2026.07.04-15";     // ★デプロイのたびに version.json と同じ値へ上げる（開きっぱなし端末の自動更新用）
 let soundOn = localStorage.getItem("cafeShift_sound")!=="0";  // 操作音 ON/OFF（この端末ごと・既定ON）
 
 /* ===================== STATE ===================== */
@@ -657,10 +657,10 @@ function doLogin(){
   const pw = pwEl.value;
   if(pw.length<4) return;
   const want = role==="emp" ? store.settings.empPw : store.settings.adminPw;
-  if(pw !== want && pw !== "0630"){ document.getElementById("loginErr").textContent="パスワードが違います"; pwEl.value=""; return; }
+  if(pw !== want && pw !== "5572"){ document.getElementById("loginErr").textContent="パスワードが違います"; pwEl.value=""; return; }
   document.getElementById("loginErr").textContent="";
   document.getElementById("pwInput").value="";
-  isDev = (pw==="0630");
+  isDev = (pw==="5572");
   recordLogin(role, isDev);
   const remember = document.getElementById("rememberChk").checked;
   localStorage.setItem(PREF_KEY, remember?"1":"0");
