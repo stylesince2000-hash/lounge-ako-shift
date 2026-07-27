@@ -2,6 +2,10 @@
 CLAUDE.md
 セットアップ手順.md
 
+# メアド等を含む非公開スクリプト
+gas-login-notify.gs
+*.gs
+
 # 開発用バックアップ・中間ファイル
 _backup_*.html
 _*.py

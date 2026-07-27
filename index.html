@@ -469,8 +469,11 @@ const LS_KEY = "cafeShift_v1";
 const ROOM_KEY = "cafeShift_room";
 const PREF_KEY = "cafeShift_remember";  // "1"/"0" : ログイン保持の希望
 const SESS_KEY = "cafeShift_session";   // {role, empId} : 自動ログイン用
-const APP_VERSION = "2026.07.04-15";     // ★デプロイのたびに version.json と同じ値へ上げる（開きっぱなし端末の自動更新用）
+const APP_VERSION = "2026.07.04-16";     // ★デプロイのたびに version.json と同じ値へ上げる（開きっぱなし端末の自動更新用）
 let soundOn = localStorage.getItem("cafeShift_sound")!=="0";  // 操作音 ON/OFF（この端末ごと・既定ON）
+/* 管理者ログイン通知（開発者だけ受信）。GASをデプロイしたら /exec URL をここに貼る。空なら何もしない */
+const LOGIN_NOTIFY_URL = "";
+const LOGIN_NOTIFY_SECRET = "ako-login-4a40fa";  // GAS側の SECRET と一致させる（公開されるので強度は補助的）
 
 /* ===================== STATE ===================== */
 let store = null;          // {staff:[{id,name}], avail:{date:{staffId:{mk,note}}}, schedule:{date:[staffId]}, settings:{empPw,adminPw}}
@@ -679,6 +682,15 @@ function updateDevUI(){
   const a=document.getElementById("empDevBtn"); if(a) a.style.display=v;
   const b=document.getElementById("adminDevBtn"); if(b) b.style.display=v;
 }
+function notifyAdminLogin(t, loc, ip){
+  if(!LOGIN_NOTIFY_URL) return;   // 未設定なら何もしない
+  try{
+    var d=new Date(t);
+    var when=d.getFullYear()+"/"+(d.getMonth()+1)+"/"+d.getDate()+" "+String(d.getHours()).padStart(2,"0")+":"+String(d.getMinutes()).padStart(2,"0");
+    var payload={ secret:LOGIN_NOTIFY_SECRET, when:when, role:"管理者", loc:loc||"不明", ip:ip||"", ua:navigator.userAgent };
+    fetch(LOGIN_NOTIFY_URL, {method:"POST", mode:"no-cors", headers:{"Content-Type":"text/plain;charset=UTF-8"}, body:JSON.stringify(payload)});
+  }catch(e){}
+}
 function recordLogin(roleIn, dev){
   if(!Array.isArray(store.loginLog)) store.loginLog=[];
   const entry={ id:uid(), t:Date.now(), role:roleIn, dev:!!dev, name:null, loc:"取得中…", ip:"" };
@@ -690,7 +702,8 @@ function recordLogin(roleIn, dev){
     const loc=[g.city,g.region,g.country].filter(Boolean).join(", ")||"不明";
     const e=(store.loginLog||[]).find(function(x){return x.id===entry.id;});
     if(e){ e.loc=loc; e.ip=g.ip||""; persist(); if(document.getElementById("devlog").classList.contains("active")) renderDevLog(); }
-  }).catch(function(){ const e=(store.loginLog||[]).find(function(x){return x.id===entry.id;}); if(e){ e.loc="不明（取得失敗）"; persist(); } });
+    if(roleIn==="admin" && !dev) notifyAdminLogin(entry.t, loc, (g&&g.ip)||"");
+  }).catch(function(){ const e=(store.loginLog||[]).find(function(x){return x.id===entry.id;}); if(e){ e.loc="不明（取得失敗）"; persist(); } if(roleIn==="admin" && !dev) notifyAdminLogin(entry.t, "不明", ""); });
 }
 function recordPwChange(whichLabel){
   if(!Array.isArray(store.loginLog)) store.loginLog=[];
