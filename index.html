@@ -469,7 +469,7 @@ const LS_KEY = "cafeShift_v1";
 const ROOM_KEY = "cafeShift_room";
 const PREF_KEY = "cafeShift_remember";  // "1"/"0" : ログイン保持の希望
 const SESS_KEY = "cafeShift_session";   // {role, empId} : 自動ログイン用
-const APP_VERSION = "2026.07.04-17";     // ★デプロイのたびに version.json と同じ値へ上げる（開きっぱなし端末の自動更新用）
+const APP_VERSION = "2026.07.04-18";     // ★デプロイのたびに version.json と同じ値へ上げる（開きっぱなし端末の自動更新用）
 let soundOn = localStorage.getItem("cafeShift_sound")!=="0";  // 操作音 ON/OFF（この端末ごと・既定ON）
 /* 管理者ログイン通知（開発者だけ受信）。GASをデプロイしたら /exec URL をここに貼る。空なら何もしない */
 const LOGIN_NOTIFY_URL = "https://script.google.com/macros/s/AKfycbxbhtflLJNoXtsI-xe7Jw5FZfgWrVXiftQ4wIbtwkMCaBPKtH72a180RNSKkFMFKHKD/exec";
@@ -682,14 +682,27 @@ function updateDevUI(){
   const a=document.getElementById("empDevBtn"); if(a) a.style.display=v;
   const b=document.getElementById("adminDevBtn"); if(b) b.style.display=v;
 }
-function notifyAdminLogin(t, loc, ip){
+/* 汎用メール通知（開発者だけ受信）。GAS側は title→件名 / body→本文 として送る */
+function nowStr(t){ var d=t?new Date(t):new Date(); return d.getFullYear()+"/"+(d.getMonth()+1)+"/"+d.getDate()+" "+String(d.getHours()).padStart(2,"0")+":"+String(d.getMinutes()).padStart(2,"0"); }
+function notify(title, body){
   if(!LOGIN_NOTIFY_URL) return;   // 未設定なら何もしない
   try{
-    var d=new Date(t);
-    var when=d.getFullYear()+"/"+(d.getMonth()+1)+"/"+d.getDate()+" "+String(d.getHours()).padStart(2,"0")+":"+String(d.getMinutes()).padStart(2,"0");
-    var payload={ secret:LOGIN_NOTIFY_SECRET, when:when, role:"管理者", loc:loc||"不明", ip:ip||"", ua:navigator.userAgent };
-    fetch(LOGIN_NOTIFY_URL, {method:"POST", mode:"no-cors", headers:{"Content-Type":"text/plain;charset=UTF-8"}, body:JSON.stringify(payload)});
+    fetch(LOGIN_NOTIFY_URL, {method:"POST", mode:"no-cors", headers:{"Content-Type":"text/plain;charset=UTF-8"}, body:JSON.stringify({secret:LOGIN_NOTIFY_SECRET, title:title, body:body})});
   }catch(e){}
+}
+/* シフト/店休の編集は高頻度なので、45秒静まってから1通にまとめて送る（スパム防止） */
+var _editTimer=null,_editShift=0,_editClose=0;
+function notifyEdit(kind){
+  if(!LOGIN_NOTIFY_URL) return;
+  if(kind==="closure") _editClose++; else _editShift++;
+  clearTimeout(_editTimer);
+  _editTimer=setTimeout(function(){
+    var parts=[];
+    if(_editShift) parts.push("シフト変更 "+_editShift+"件");
+    if(_editClose) parts.push("店休変更 "+_editClose+"件");
+    notify("シフト・店休の更新", nowStr()+" に管理者がシフトを編集しました。\n\n"+parts.join(" / ")+"\n\n最新はアプリでご確認ください。");
+    _editShift=0;_editClose=0;
+  }, 45000);
 }
 function recordLogin(roleIn, dev){
   if(!Array.isArray(store.loginLog)) store.loginLog=[];
@@ -702,8 +715,8 @@ function recordLogin(roleIn, dev){
     const loc=[g.city,g.region,g.country].filter(Boolean).join(", ")||"不明";
     const e=(store.loginLog||[]).find(function(x){return x.id===entry.id;});
     if(e){ e.loc=loc; e.ip=g.ip||""; persist(); if(document.getElementById("devlog").classList.contains("active")) renderDevLog(); }
-    if(roleIn==="admin" && !dev) notifyAdminLogin(entry.t, loc, (g&&g.ip)||"");
-  }).catch(function(){ const e=(store.loginLog||[]).find(function(x){return x.id===entry.id;}); if(e){ e.loc="不明（取得失敗）"; persist(); } if(roleIn==="admin" && !dev) notifyAdminLogin(entry.t, "不明", ""); });
+    if(roleIn==="admin" && !dev) notify("管理者ログイン通知", "管理者アカウントでログインがありました。\n\n日時: "+nowStr(entry.t)+"\n種別: 管理者\n場所(推定): "+loc+"\nIP: "+((g&&g.ip)||"")+"\n端末: "+navigator.userAgent);
+  }).catch(function(){ const e=(store.loginLog||[]).find(function(x){return x.id===entry.id;}); if(e){ e.loc="不明（取得失敗）"; persist(); } if(roleIn==="admin" && !dev) notify("管理者ログイン通知", "管理者アカウントでログインがありました。\n\n日時: "+nowStr(entry.t)+"\n種別: 管理者\n場所(推定): 不明\nIP: \n端末: "+navigator.userAgent); });
 }
 function recordPwChange(whichLabel){
   if(!Array.isArray(store.loginLog)) store.loginLog=[];
@@ -764,8 +777,12 @@ function renderNotice(){
   const e2=document.getElementById("adminNotice"); if(e2) e2.innerHTML=html;
 }
 function saveNotice(){
+  const prev=store.notice||"";
   store.notice=document.getElementById("setNotice").value.trim();
   persist(); renderNotice(); toast("お知らせを保存しました");
+  if(store.notice && store.notice!==prev){
+    notify("伝達事項の更新", nowStr()+" に管理者が伝達事項（全体お知らせ）を更新しました。\n\n内容: "+store.notice);
+  }
 }
 function eventBox(ds,editable){
   const ev=(store.events||{})[ds];
@@ -789,11 +806,16 @@ function editEventModal(ds){
 function saveEvent(ds){
   const v=document.getElementById("mEvent").value.trim();
   const n=document.getElementById("mDayNote").value.trim();
+  const prevN=(store.dayNotes||{})[ds]||"";
   if(v) store.events[ds]=v; else delete store.events[ds];
   if(!store.dayNotes) store.dayNotes={};
   if(n) store.dayNotes[ds]=n; else delete store.dayNotes[ds];
   persist(); closeModal();
   if(adminView==="shift") renderShift(); else renderAll();
+  if(n && n!==prevN){
+    var dt=new Date(ds); var dl=(dt.getMonth()+1)+"/"+dt.getDate()+"("+WD[dt.getDay()]+")";
+    notify("伝達事項の更新", nowStr()+" に管理者が "+dl+" の伝達事項を更新しました。\n\n内容: "+n);
+  }
 }
 
 /* ===================== EMPLOYEE ===================== */
@@ -1047,9 +1069,15 @@ function saveMark(ds){
   const mk = modalBox._mk;
   const note=document.getElementById("mNote").value.trim();
   if(!mk && !note){ clearMark(ds); return; }
+  const prevNote=((store.avail[ds]||{})[currentEmpId]||{}).note||"";
   if(!store.avail[ds]) store.avail[ds]={};
   store.avail[ds][currentEmpId]={mk:mk||"maru", note};
   persist(); closeModal(); renderEmpCal();
+  if(note && note!==prevNote){
+    var nm=(staffById(currentEmpId)||{}).name||"従業員";
+    var dt=new Date(ds); var dl=(dt.getMonth()+1)+"/"+dt.getDate()+"("+WD[dt.getDay()]+")";
+    notify("従業員の備考", nowStr()+"\n\n"+nm+" さんが "+dl+" に備考を入力しました。\n\n備考: "+note);
+  }
 }
 function clearMark(ds){
   if(store.avail[ds]&&store.avail[ds][currentEmpId]){ delete store.avail[ds][currentEmpId]; if(Object.keys(store.avail[ds]).length===0) delete store.avail[ds]; persist(); }
@@ -1162,7 +1190,7 @@ function toggleClosure(ds){
   if(wantClosed!==def){ if(wantClosed) store.closures[ds]=true; else store.opens[ds]=true; }
   // 店休にした日に既に確定シフトがあれば外す
   if(wantClosed && store.schedule[ds]) delete store.schedule[ds];
-  persist(); renderClosures();
+  persist(); renderClosures(); notifyEdit("closure");
 }
 
 function isOpenException(ds){ return !!(store.opens && store.opens[ds] && defaultClosed(ds)); }
@@ -1365,7 +1393,7 @@ function togglePick(ds,sid){
   const arr=store.schedule[ds]; const i=arr.indexOf(sid);
   if(i>=0) arr.splice(i,1); else arr.push(sid);
   if(arr.length===0) delete store.schedule[ds];
-  persist(); renderShift();
+  persist(); renderShift(); notifyEdit("shift");
 }
 
 function renderFinal(){
@@ -1408,7 +1436,7 @@ function swipeRow(ds,sid,idx,total,s,r){
 function removeFromShift(ds,sid){
   const arr=store.schedule[ds]||[]; const i=arr.indexOf(sid); if(i>=0)arr.splice(i,1);
   if(arr.length===0) delete store.schedule[ds];
-  persist(); renderShift(); toast("削除しました");
+  persist(); renderShift(); toast("削除しました"); notifyEdit("shift");
 }
 function moveShift(ds,idx,dir){
   const arr=store.schedule[ds]; const ni=idx+dir;
