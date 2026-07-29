@@ -328,7 +328,7 @@ input.pin::placeholder{letter-spacing:10px}
           </div>
           <div id="empCalWrap" style="display:none">
             <div class="cal">
-              <div class="dow"><span>月</span><span>火</span><span>水</span><span>木</span><span>金</span><span class="sat">土</span><span class="sun">日</span></div>
+              <div class="dow"><span class="sun">日</span><span>月</span><span>火</span><span>水</span><span>木</span><span>金</span><span class="sat">土</span></div>
               <div class="grid" id="empGrid"></div>
             </div>
             <div class="legend">
@@ -469,7 +469,7 @@ const LS_KEY = "cafeShift_v1";
 const ROOM_KEY = "cafeShift_room";
 const PREF_KEY = "cafeShift_remember";  // "1"/"0" : ログイン保持の希望
 const SESS_KEY = "cafeShift_session";   // {role, empId} : 自動ログイン用
-const APP_VERSION = "2026.07.04-18";     // ★デプロイのたびに version.json と同じ値へ上げる（開きっぱなし端末の自動更新用）
+const APP_VERSION = "2026.07.04-19";     // ★デプロイのたびに version.json と同じ値へ上げる（開きっぱなし端末の自動更新用）
 let soundOn = localStorage.getItem("cafeShift_sound")!=="0";  // 操作音 ON/OFF（この端末ごと・既定ON）
 /* 管理者ログイン通知（開発者だけ受信）。GASをデプロイしたら /exec URL をここに貼る。空なら何もしない */
 const LOGIN_NOTIFY_URL = "https://script.google.com/macros/s/AKfycbxbhtflLJNoXtsI-xe7Jw5FZfgWrVXiftQ4wIbtwkMCaBPKtH72a180RNSKkFMFKHKD/exec";
@@ -580,6 +580,9 @@ function mondayOf(dt){ const d=new Date(dt); d.setHours(0,0,0,0); d.setDate(d.ge
 function weekDates(offset){ const mon=mondayOf(new Date()); mon.setDate(mon.getDate()+offset*7); const a=[]; for(let i=0;i<7;i++){ const d=new Date(mon); d.setDate(mon.getDate()+i); a.push(ymd(d)); } return a; }
 /* 月曜始まりの曜日ヘッダー */
 const DOW_MON_HEADER='<span>月</span><span>火</span><span>水</span><span>木</span><span>金</span><span class="sat">土</span><span class="sun">日</span>';
+/* 日曜始まりカレンダー用（月表示はこちら。今週/来週リストは月曜始まりのまま） */
+function leadSun(y,m){ return new Date(y,m,1).getDay(); }
+const DOW_SUN_HEADER='<span class="sun">日</span><span>月</span><span>火</span><span>水</span><span>木</span><span>金</span><span class="sat">土</span>';
 function inMonth(dateStr, cur){ return dateStr.startsWith(monthKey(cur)); }
 function initials(name){ return (name||"?").trim().charAt(0).toUpperCase(); }
 function staffById(id){ return store.staff.find(s=>s.id===id); }
@@ -896,9 +899,9 @@ function openDayEdit(ds){
 }
 function scheduleCalGrid(cursor, highlightId, editable){
   const y=cursor.getFullYear(), m=cursor.getMonth();
-  const first=leadMon(y,m), days=new Date(y,m+1,0).getDate();
+  const first=leadSun(y,m), days=new Date(y,m+1,0).getDate();
   const todayStr=ymd(new Date());
-  let h='<div class="cal"><div class="dow">'+DOW_MON_HEADER+'</div><div class="grid">';
+  let h='<div class="cal"><div class="dow">'+DOW_SUN_HEADER+'</div><div class="grid">';
   for(let i=0;i<first;i++) h+='<div class="day empty"></div>';
   for(let d=1;d<=days;d++){
     const ds=ymd(new Date(y,m,d)); const dow=new Date(ds).getDay();
@@ -1011,7 +1014,7 @@ function buildEmpGrid(){
   document.getElementById("empMonthLabel").textContent = empCursor.getFullYear()+"年 "+(empCursor.getMonth()+1)+"月";
   const grid=document.getElementById("empGrid");
   const y=empCursor.getFullYear(), m=empCursor.getMonth();
-  const first=leadMon(y,m);
+  const first=leadSun(y,m);
   const days=new Date(y,m+1,0).getDate();
   const todayStr=ymd(new Date());
   let h="";
@@ -1164,7 +1167,7 @@ function scrollToDay(ds){ setTimeout(()=>{ const e=document.getElementById("schd
 function renderClosures(){
   const grid=document.getElementById("closedGrid");
   const y=adminCursor.getFullYear(), m=adminCursor.getMonth();
-  const first=leadMon(y,m), days=new Date(y,m+1,0).getDate();
+  const first=leadSun(y,m), days=new Date(y,m+1,0).getDate();
   const todayStr=ymd(new Date());
   let h="";
   for(let i=0;i<first;i++) h+='<div class="day empty"></div>';
