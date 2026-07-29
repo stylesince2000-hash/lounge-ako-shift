@@ -330,8 +330,10 @@ input.pin::placeholder{letter-spacing:10px}
         </div>
         <div id="empInputView">
           <div class="seg" style="margin-bottom:12px">
-            <button id="empInpList" class="on" onclick="setEmpInputMode('list')">📋 リスト</button>
-            <button id="empInpCal" onclick="setEmpInputMode('cal')">📅 カレンダー</button>
+            <button id="empInpW0" class="on" onclick="setEmpInputMode('week0')">今週</button>
+            <button id="empInpW1" onclick="setEmpInputMode('week1')">来週</button>
+            <button id="empInpMonth" onclick="setEmpInputMode('month')">今月</button>
+            <button id="empInpCal" onclick="setEmpInputMode('cal')">📅</button>
           </div>
           <div id="empCalWrap" style="display:none">
             <div class="cal">
@@ -476,7 +478,7 @@ const LS_KEY = "cafeShift_v1";
 const ROOM_KEY = "cafeShift_room";
 const PREF_KEY = "cafeShift_remember";  // "1"/"0" : ログイン保持の希望
 const SESS_KEY = "cafeShift_session";   // {role, empId} : 自動ログイン用
-const APP_VERSION = "2026.07.04-23";     // ★デプロイのたびに version.json と同じ値へ上げる（開きっぱなし端末の自動更新用）
+const APP_VERSION = "2026.07.04-24";     // ★デプロイのたびに version.json と同じ値へ上げる（開きっぱなし端末の自動更新用）
 let soundOn = localStorage.getItem("cafeShift_sound")!=="0";  // 操作音 ON/OFF（この端末ごと・既定ON）
 /* 管理者ログイン通知（開発者だけ受信）。GASをデプロイしたら /exec URL をここに貼る。空なら何もしない */
 const LOGIN_NOTIFY_URL = "https://script.google.com/macros/s/AKfycbxbhtflLJNoXtsI-xe7Jw5FZfgWrVXiftQ4wIbtwkMCaBPKtH72a180RNSKkFMFKHKD/exec";
@@ -491,7 +493,7 @@ let lastLoginId = null;
 let devReturn = "admin";
 let empCursor = new Date();
 let empViewMode = "input";
-let empInputMode = "list";
+let empInputMode = "week0";  // "week0"=今週 | "week1"=来週 | "month"=今月(全日リスト) | "cal"=カレンダー
 let empSchedScope = "mine";   // "mine" | "all"
 let empSchedDisp = "week0";  // "week0"=今週 | "week1"=来週 | "cal" : 従業員 確定シフト表示
 let _scrollEmpListToday=false;  // 希望入力リストを開いた時に本日へスクロール
@@ -873,7 +875,7 @@ function confirmAddSelf(){
 function empMonth(d){ empCursor.setMonth(empCursor.getMonth()+d); if(empViewMode==="sched") renderEmpSched(); else renderEmpCal(); }
 function empView(v){
   empViewMode=v;
-  if(v==="input") _scrollEmpListToday=true;
+  if(v==="input" && empInputMode==="month") _scrollEmpListToday=true;
   document.getElementById("empSegInput").classList.toggle("on",v==="input");
   document.getElementById("empSegSched").classList.toggle("on",v==="sched");
   document.getElementById("empInputView").style.display = v==="input"?"block":"none";
@@ -993,15 +995,17 @@ function empSchedCard(ds){
 }
 function renderEmpCal(){
   document.getElementById("empMonthLabel").textContent = empCursor.getFullYear()+"年 "+(empCursor.getMonth()+1)+"月";
-  const bl=document.getElementById("empInpList"), bc=document.getElementById("empInpCal");
-  if(bl) bl.classList.toggle("on",empInputMode==="list");
-  if(bc) bc.classList.toggle("on",empInputMode==="cal");
+  const btn={week0:"empInpW0",week1:"empInpW1",month:"empInpMonth",cal:"empInpCal"};
+  Object.keys(btn).forEach(function(k){ var b=document.getElementById(btn[k]); if(b) b.classList.toggle("on",empInputMode===k); });
+  const isCal=empInputMode==="cal";
   const cw=document.getElementById("empCalWrap"), lw=document.getElementById("empListWrap");
-  if(cw) cw.style.display=empInputMode==="cal"?"block":"none";
-  if(lw) lw.style.display=empInputMode==="list"?"block":"none";
-  if(empInputMode==="list") buildEmpList(); else buildEmpGrid();
+  if(cw) cw.style.display=isCal?"block":"none";
+  if(lw) lw.style.display=isCal?"none":"block";
+  if(isCal) buildEmpGrid();
+  else if(empInputMode==="month") buildEmpList();
+  else buildEmpWeek(empInputMode==="week1"?1:0);
 }
-function setEmpInputMode(v){ empInputMode=v; if(v==="list") _scrollEmpListToday=true; renderEmpCal(); }
+function setEmpInputMode(v){ empInputMode=v; if(v==="month") _scrollEmpListToday=true; renderEmpCal(); }
 function setMark(ds,mk){
   const cur=(store.avail[ds]||{})[currentEmpId];
   if(cur && cur.mk===mk){ delete store.avail[ds][currentEmpId]; if(store.avail[ds]&&Object.keys(store.avail[ds]).length===0) delete store.avail[ds]; }
@@ -1013,34 +1017,46 @@ function computeEmpSummary(){
   Object.keys(store.avail).forEach(function(ds){ if(inMonth(ds,empCursor)){ const r=store.avail[ds][currentEmpId]; if(r){ if(r.mk==="maru")cM++; else if(r.mk==="sankaku")cS++; else if(r.mk==="batsu")cB++; } } });
   const s=document.getElementById("empSummary"); if(s) s.textContent="この月の入力：○ "+cM+"　△ "+cS+"　× "+cB;
 }
+function empInputRowHTML(ds){
+  const dt=new Date(ds); const dow=dt.getDay(); const md=(dt.getMonth()+1)+'/'+dt.getDate();
+  const dcls=dow===0?" sun":(dow===6?" sat":"");
+  const todayStr=ymd(new Date());
+  const ev=(store.events||{})[ds], dn=(store.dayNotes||{})[ds], closed=isClosed(ds);
+  let top='';
+  if(dn) top+='<div class="inp-top dn">📢 '+esc(dn)+'</div>';
+  if(ev) top+='<div class="inp-top ev">📌 '+esc(ev)+'</div>';
+  let main;
+  if(closed){
+    main='<div class="inp-date'+dcls+'">'+md+' ('+WD[dow]+')</div><span class="inp-closed-label">'+closeReason(ds)+'</span>';
+  } else {
+    const rec=(store.avail[ds]||{})[currentEmpId]; const mk=rec?rec.mk:null;
+    main='<div class="inp-date'+dcls+'">'+md+' ('+WD[dow]+')</div><div class="inp-btns">'+
+      '<button class="mkbtn m'+(mk==="maru"?" on":"")+'" onclick="setMark(\''+ds+'\',\'maru\')">○</button>'+
+      '<button class="mkbtn s'+(mk==="sankaku"?" on":"")+'" onclick="setMark(\''+ds+'\',\'sankaku\')">△</button>'+
+      '<button class="mkbtn b'+(mk==="batsu"?" on":"")+'" onclick="setMark(\''+ds+'\',\'batsu\')">×</button>'+
+      '</div><button class="notebtn" onclick="openMarkModal(\''+ds+'\')">'+(rec&&rec.note?"📝":"✎")+'</button>';
+  }
+  return '<div class="inp-row'+(closed?' closed':'')+((ds===todayStr&&!closed)?' today-row':'')+'" id="inprow_'+ds+'">'+top+'<div class="inp-main">'+main+'</div></div>';
+}
 function buildEmpList(){
   const el=document.getElementById("empListWrap"); if(!el) return;
   const y=empCursor.getFullYear(), m=empCursor.getMonth(), days=new Date(y,m+1,0).getDate();
-  const todayStr=ymd(new Date());
   let h='<div class="count-note" style="margin:0 0 10px">日にちの ○△× をタップ。色が付いた日が入力済みです。</div>';
-  for(let d=1;d<=days;d++){
-    const ds=ymd(new Date(y,m,d)); const dow=new Date(ds).getDay();
-    const dcls=dow===0?" sun":(dow===6?" sat":"");
-    const ev=(store.events||{})[ds], dn=(store.dayNotes||{})[ds], closed=isClosed(ds);
-    let top='';
-    if(dn) top+='<div class="inp-top dn">📢 '+esc(dn)+'</div>';
-    if(ev) top+='<div class="inp-top ev">📌 '+esc(ev)+'</div>';
-    let main;
-    if(closed){
-      main='<div class="inp-date'+dcls+'">'+(m+1)+'/'+d+' ('+WD[dow]+')</div><span class="inp-closed-label">'+closeReason(ds)+'</span>';
-    } else {
-      const rec=(store.avail[ds]||{})[currentEmpId]; const mk=rec?rec.mk:null;
-      main='<div class="inp-date'+dcls+'">'+(m+1)+'/'+d+' ('+WD[dow]+')</div><div class="inp-btns">'+
-        '<button class="mkbtn m'+(mk==="maru"?" on":"")+'" onclick="setMark(\''+ds+'\',\'maru\')">○</button>'+
-        '<button class="mkbtn s'+(mk==="sankaku"?" on":"")+'" onclick="setMark(\''+ds+'\',\'sankaku\')">△</button>'+
-        '<button class="mkbtn b'+(mk==="batsu"?" on":"")+'" onclick="setMark(\''+ds+'\',\'batsu\')">×</button>'+
-        '</div><button class="notebtn" onclick="openMarkModal(\''+ds+'\')">'+(rec&&rec.note?"📝":"✎")+'</button>';
-    }
-    h+='<div class="inp-row'+(closed?' closed':'')+((ds===todayStr&&!closed)?' today-row':'')+'" id="inprow_'+ds+'">'+top+'<div class="inp-main">'+main+'</div></div>';
-  }
+  for(let d=1;d<=days;d++){ h+=empInputRowHTML(ymd(new Date(y,m,d))); }
   el.innerHTML=h;
   computeEmpSummary();
   if(_scrollEmpListToday){ _scrollEmpListToday=false; setTimeout(function(){ var e=document.getElementById("inprow_"+ymd(new Date())); if(e) e.scrollIntoView({behavior:"smooth",block:"center"}); },80); }
+}
+function buildEmpWeek(offset){
+  const el=document.getElementById("empListWrap"); if(!el) return;
+  const dates=weekDates(offset);
+  const a=new Date(dates[0]), b=new Date(dates[6]);
+  const range=(a.getMonth()+1)+'/'+a.getDate()+'(月)〜'+(b.getMonth()+1)+'/'+b.getDate()+'(日)';
+  let h='<div class="week-label">'+(offset?'来週':'今週')+'　'+range+'</div>';
+  h+='<div class="count-note" style="margin:0 0 10px">日にちの ○△× をタップして希望を入力。</div>';
+  dates.forEach(function(ds){ h+=empInputRowHTML(ds); });
+  el.innerHTML=h;
+  computeEmpSummary();
 }
 function buildEmpGrid(){
   document.getElementById("empMonthLabel").textContent = empCursor.getFullYear()+"年 "+(empCursor.getMonth()+1)+"月";
