@@ -190,6 +190,9 @@ input.pin::placeholder{letter-spacing:10px}
 .week-label{font-weight:700;color:var(--espresso);font-size:15px;margin:2px 0 12px;padding:9px 12px;background:var(--foam);border-radius:12px;text-align:center}
 .week-closed{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:12px 16px;margin-bottom:9px;border-radius:14px;background:repeating-linear-gradient(-45deg,#f7eded,#f7eded 8px,#f2e3e3 8px,#f2e3e3 16px);border:1.5px solid #e6cccc;color:var(--rose);font-size:14.5px;font-weight:700}
 .week-closed .wc-date{font-weight:800;color:var(--espresso)}
+.inp-info{font-size:12.5px;line-height:1.45;color:var(--espresso);background:#f4ece0;border-radius:9px;padding:6px 11px;margin:-2px 0 9px}
+.inp-info.dn{background:#e7f0e9;color:#3f6b52}
+.inp-info b{font-weight:700}
 .week-closed .wc-label{background:var(--rose);color:#fff;padding:3px 11px;border-radius:20px;font-size:12.5px;white-space:nowrap}
 .chip.sel{background:var(--coffee);border-color:var(--coffee);color:#fff}
 .chip.sel .av-s{background:rgba(255,255,255,.25);color:#fff}
@@ -469,7 +472,7 @@ const LS_KEY = "cafeShift_v1";
 const ROOM_KEY = "cafeShift_room";
 const PREF_KEY = "cafeShift_remember";  // "1"/"0" : ログイン保持の希望
 const SESS_KEY = "cafeShift_session";   // {role, empId} : 自動ログイン用
-const APP_VERSION = "2026.07.04-19";     // ★デプロイのたびに version.json と同じ値へ上げる（開きっぱなし端末の自動更新用）
+const APP_VERSION = "2026.07.04-20";     // ★デプロイのたびに version.json と同じ値へ上げる（開きっぱなし端末の自動更新用）
 let soundOn = localStorage.getItem("cafeShift_sound")!=="0";  // 操作音 ON/OFF（この端末ごと・既定ON）
 /* 管理者ログイン通知（開発者だけ受信）。GASをデプロイしたら /exec URL をここに貼る。空なら何もしない */
 const LOGIN_NOTIFY_URL = "https://script.google.com/macros/s/AKfycbxbhtflLJNoXtsI-xe7Jw5FZfgWrVXiftQ4wIbtwkMCaBPKtH72a180RNSKkFMFKHKD/exec";
@@ -486,7 +489,8 @@ let empCursor = new Date();
 let empViewMode = "input";
 let empInputMode = "list";
 let empSchedScope = "mine";   // "mine" | "all"
-let empSchedDisp = "list";   // "list" | "cal" : 従業員 確定シフト表示
+let empSchedDisp = "week0";  // "week0"=今週 | "week1"=来週 | "cal" : 従業員 確定シフト表示
+let _scrollEmpListToday=false;  // 希望入力リストを開いた時に本日へスクロール
 let finalDisp = "list";      // "list" | "cal" : 管理者 出勤表示（旧・未使用）
 let shiftView = "week0";     // "week0"=今週 | "week1"=来週 | "cal"=カレンダー（管理者シフト）
 let adminCursor = new Date();
@@ -864,6 +868,7 @@ function confirmAddSelf(){
 function empMonth(d){ empCursor.setMonth(empCursor.getMonth()+d); if(empViewMode==="sched") renderEmpSched(); else renderEmpCal(); }
 function empView(v){
   empViewMode=v;
+  if(v==="input") _scrollEmpListToday=true;
   document.getElementById("empSegInput").classList.toggle("on",v==="input");
   document.getElementById("empSegSched").classList.toggle("on",v==="sched");
   document.getElementById("empInputView").style.display = v==="input"?"block":"none";
@@ -937,36 +942,49 @@ function renderEmpSched(){
     '<button class="'+(empSchedScope==="mine"?"on":"")+'" onclick="setEmpSchedScope(\'mine\')">🙋 自分のシフト</button>'+
     '<button class="'+(empSchedScope==="all"?"on":"")+'" onclick="setEmpSchedScope(\'all\')">👥 みんなのシフト</button></div>'+
     '<div class="seg" style="margin-bottom:14px">'+
-    '<button class="'+(empSchedDisp==="list"?"on":"")+'" onclick="setEmpSchedDisp(\'list\')">📋 リスト</button>'+
+    '<button class="'+(empSchedDisp==="week0"?"on":"")+'" onclick="setEmpSchedDisp(\'week0\')">今週</button>'+
+    '<button class="'+(empSchedDisp==="week1"?"on":"")+'" onclick="setEmpSchedDisp(\'week1\')">来週</button>'+
     '<button class="'+(empSchedDisp==="cal"?"on":"")+'" onclick="setEmpSchedDisp(\'cal\')">📅 カレンダー</button></div>';
   if(empSchedDisp==="cal"){ el.innerHTML=toggle+scheduleCalGrid(empCursor, empSchedScope==="mine"?currentEmpId:null)+'<div class="count-note" style="margin-top:10px">数字＝出勤人数／緑＝あなたの出勤日。日付タップで詳細。</div>'; return; }
-  let dates=monthDates(empCursor).filter(ds=>!isClosed(ds) && (store.schedule[ds]||[]).length>0);
-  if(empSchedScope==="mine") dates=dates.filter(ds=>store.schedule[ds].includes(currentEmpId));
-  if(dates.length===0){ el.innerHTML=toggle+'<div class="empty-state"><div class="ic">📅</div>'+(empSchedScope==="mine"?"あなたの出勤予定はまだありません。":"この月の確定シフトはまだありません。")+'</div>'; return; }
-  let h=toggle+'<div class="count-note" style="margin:0 0 12px">'+(empSchedScope==="mine"?"あなたの出勤日のみ表示しています。":"あなたの出勤日は緑枠で表示されます。")+'</div>';
+  const offset=(empSchedDisp==="week1")?1:0;
+  const dates=weekDates(offset);
+  const a=new Date(dates[0]), b=new Date(dates[6]);
+  const range=(a.getMonth()+1)+'/'+a.getDate()+'(月)〜'+(b.getMonth()+1)+'/'+b.getDate()+'(日)';
+  let h=toggle+'<div class="week-label">'+(offset?'来週':'今週')+'　'+range+'</div>';
+  let shown=0;
   dates.forEach(ds=>{
-    const dt=new Date(ds); const arr=store.schedule[ds]; const dow=dt.getDay();
+    const dt=new Date(ds);
+    if(isClosed(ds)){ h+='<div class="week-closed"><span class="wc-date">🌙 '+(dt.getMonth()+1)+'/'+dt.getDate()+' ('+WD[dt.getDay()]+') はお休み</span><span class="wc-label">🚫 '+closeReason(ds)+'日</span></div>'; return; }
+    const arr=store.schedule[ds]||[];
     const mine=arr.includes(currentEmpId);
-    h+='<div class="card" style="padding:13px 15px;margin-bottom:10px'+(mine?';border:2px solid var(--green)':'')+'">';
-    h+='<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:'+(arr.length?'9px':'0')+'">';
-    h+='<b style="color:'+(dow===0?'var(--rose)':dow===6?'#5a7d9a':'var(--espresso)')+';font-size:15px">'+(dt.getMonth()+1)+'/'+dt.getDate()+' ('+WD[dow]+')</b>';
-    h+=mine?'<span class="pill green">あなたは出勤</span>':'<span style="font-size:12px;color:var(--muted)">'+arr.length+'名</span>';
-    h+='</div>';
-    h+=eventBox(ds,false);
-    h+='<div class="chips" style="margin-top:10px">';
-    arr.forEach(sid=>{
-      const s=staffById(sid); if(!s) return;
-      const r=(store.avail[ds]||{})[sid]||{};
-      const me = sid===currentEmpId;
-      h+='<span class="chip'+(me?' sel':'')+'" style="cursor:default" title="'+esc(r.note||'')+'"><span class="av-s">'+esc(initials(s.name))+'</span>'+esc(s.name)+((!r.mk||r.mk==="batsu")?' <span class="tag">追加</span>':'')+(r.note?' <span class="tag">📝</span>':'')+'</span>';
-    });
-    h+='</div>';
-    // notes detail for the day
-    const notes=arr.map(sid=>{const r=(store.avail[ds]||{})[sid]||{};return r.note?{n:(staffById(sid)||{}).name,t:r.note}:null;}).filter(Boolean);
-    if(notes.length){ h+='<div class="staff-mini" style="margin-top:10px">'; notes.forEach(o=>{ h+='<div class="smrow">📝 '+esc(o.n)+'<span class="nt">'+esc(o.t)+'</span></div>'; }); h+='</div>'; }
-    h+='</div>';
+    if(empSchedScope==="mine"){ if(!mine) return; }
+    else if(arr.length===0){ h+='<div class="week-closed" style="background:rgba(154,134,120,.06)"><span class="wc-date" style="color:var(--muted)">'+(dt.getMonth()+1)+'/'+dt.getDate()+' ('+WD[dt.getDay()]+')</span><span style="color:var(--muted);font-size:12.5px">確定なし</span></div>'; return; }
+    shown++; h+=empSchedCard(ds);
   });
+  if(!shown && empSchedScope==="mine") h+='<div class="empty-state"><div class="ic">📅</div>'+(offset?'来週':'今週')+'のあなたの出勤予定はありません。</div>';
   el.innerHTML=h;
+}
+function empSchedCard(ds){
+  const dt=new Date(ds); const arr=store.schedule[ds]||[]; const dow=dt.getDay();
+  const mine=arr.includes(currentEmpId);
+  let h='<div class="card" style="padding:13px 15px;margin-bottom:10px'+(mine?';border:2px solid var(--green)':'')+'">';
+  h+='<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:'+(arr.length?'9px':'0')+'">';
+  h+='<b style="color:'+(dow===0?'var(--rose)':dow===6?'#5a7d9a':'var(--espresso)')+';font-size:15px">'+(dt.getMonth()+1)+'/'+dt.getDate()+' ('+WD[dow]+')</b>';
+  h+=mine?'<span class="pill green">あなたは出勤</span>':'<span style="font-size:12px;color:var(--muted)">'+arr.length+'名</span>';
+  h+='</div>';
+  h+=eventBox(ds,false);
+  h+='<div class="chips" style="margin-top:10px">';
+  arr.forEach(sid=>{
+    const s=staffById(sid); if(!s) return;
+    const r=(store.avail[ds]||{})[sid]||{};
+    const me = sid===currentEmpId;
+    h+='<span class="chip'+(me?' sel':'')+'" style="cursor:default" title="'+esc(r.note||'')+'"><span class="av-s">'+esc(initials(s.name))+'</span>'+esc(s.name)+((!r.mk||r.mk==="batsu")?' <span class="tag">追加</span>':'')+(r.note?' <span class="tag">📝</span>':'')+'</span>';
+  });
+  h+='</div>';
+  const notes=arr.map(sid=>{const r=(store.avail[ds]||{})[sid]||{};return r.note?{n:(staffById(sid)||{}).name,t:r.note}:null;}).filter(Boolean);
+  if(notes.length){ h+='<div class="staff-mini" style="margin-top:10px">'; notes.forEach(o=>{ h+='<div class="smrow">📝 '+esc(o.n)+'<span class="nt">'+esc(o.t)+'</span></div>'; }); h+='</div>'; }
+  h+='</div>';
+  return h;
 }
 function renderEmpCal(){
   document.getElementById("empMonthLabel").textContent = empCursor.getFullYear()+"年 "+(empCursor.getMonth()+1)+"月";
@@ -978,7 +996,7 @@ function renderEmpCal(){
   if(lw) lw.style.display=empInputMode==="list"?"block":"none";
   if(empInputMode==="list") buildEmpList(); else buildEmpGrid();
 }
-function setEmpInputMode(v){ empInputMode=v; renderEmpCal(); }
+function setEmpInputMode(v){ empInputMode=v; if(v==="list") _scrollEmpListToday=true; renderEmpCal(); }
 function setMark(ds,mk){
   const cur=(store.avail[ds]||{})[currentEmpId];
   if(cur && cur.mk===mk){ delete store.avail[ds][currentEmpId]; if(store.avail[ds]&&Object.keys(store.avail[ds]).length===0) delete store.avail[ds]; }
@@ -998,17 +1016,22 @@ function buildEmpList(){
   for(let d=1;d<=days;d++){
     const ds=ymd(new Date(y,m,d)); const dow=new Date(ds).getDay();
     const dcls=dow===0?" sun":(dow===6?" sat":"");
-    if(isClosed(ds)){ h+='<div class="inp-row closed"><div class="inp-date'+dcls+'">'+(m+1)+'/'+d+' ('+WD[dow]+')</div><span class="inp-closed-label">'+closeReason(ds)+'</span></div>'; continue; }
-    const rec=(store.avail[ds]||{})[currentEmpId]; const mk=rec?rec.mk:null;
-    const ev=((store.events||{})[ds]||(store.dayNotes||{})[ds])?' 📌':'';
-    h+='<div class="inp-row'+(ds===todayStr?' today-row':'')+'"><div class="inp-date'+dcls+'">'+(m+1)+'/'+d+' ('+WD[dow]+')'+ev+'</div><div class="inp-btns">';
-    h+='<button class="mkbtn m'+(mk==="maru"?" on":"")+'" onclick="setMark(\''+ds+'\',\'maru\')">○</button>';
-    h+='<button class="mkbtn s'+(mk==="sankaku"?" on":"")+'" onclick="setMark(\''+ds+'\',\'sankaku\')">△</button>';
-    h+='<button class="mkbtn b'+(mk==="batsu"?" on":"")+'" onclick="setMark(\''+ds+'\',\'batsu\')">×</button>';
-    h+='</div><button class="notebtn" onclick="openMarkModal(\''+ds+'\')">'+(rec&&rec.note?"📝":"✎")+'</button></div>';
+    const ev=(store.events||{})[ds], dn=(store.dayNotes||{})[ds];
+    if(isClosed(ds)){ h+='<div class="inp-row closed" id="inprow_'+ds+'"><div class="inp-date'+dcls+'">'+(m+1)+'/'+d+' ('+WD[dow]+')</div><span class="inp-closed-label">'+closeReason(ds)+'</span></div>'; }
+    else {
+      const rec=(store.avail[ds]||{})[currentEmpId]; const mk=rec?rec.mk:null;
+      h+='<div class="inp-row'+(ds===todayStr?' today-row':'')+'" id="inprow_'+ds+'"><div class="inp-date'+dcls+'">'+(m+1)+'/'+d+' ('+WD[dow]+')</div><div class="inp-btns">';
+      h+='<button class="mkbtn m'+(mk==="maru"?" on":"")+'" onclick="setMark(\''+ds+'\',\'maru\')">○</button>';
+      h+='<button class="mkbtn s'+(mk==="sankaku"?" on":"")+'" onclick="setMark(\''+ds+'\',\'sankaku\')">△</button>';
+      h+='<button class="mkbtn b'+(mk==="batsu"?" on":"")+'" onclick="setMark(\''+ds+'\',\'batsu\')">×</button>';
+      h+='</div><button class="notebtn" onclick="openMarkModal(\''+ds+'\')">'+(rec&&rec.note?"📝":"✎")+'</button></div>';
+    }
+    if(ev) h+='<div class="inp-info">📌 <b>イベント:</b> '+esc(ev)+'</div>';
+    if(dn) h+='<div class="inp-info dn">📢 <b>伝達事項:</b> '+esc(dn)+'</div>';
   }
   el.innerHTML=h;
   computeEmpSummary();
+  if(_scrollEmpListToday){ _scrollEmpListToday=false; setTimeout(function(){ var e=document.getElementById("inprow_"+ymd(new Date())); if(e) e.scrollIntoView({behavior:"smooth",block:"center"}); },80); }
 }
 function buildEmpGrid(){
   document.getElementById("empMonthLabel").textContent = empCursor.getFullYear()+"年 "+(empCursor.getMonth()+1)+"月";
