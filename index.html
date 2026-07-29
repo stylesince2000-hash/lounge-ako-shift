@@ -276,7 +276,7 @@ input.pin::placeholder{letter-spacing:10px}
 .mkbtn.s.on{background:#f8ecd9;border-color:var(--amber);color:var(--amber)}
 .mkbtn.b.on{background:#f6e2e3;border-color:var(--rose);color:var(--rose)}
 .notebtn{background:var(--foam);border:none;border-radius:10px;width:38px;height:38px;font-size:15px;cursor:pointer;flex-shrink:0;color:var(--coffee)}
-.inp-closed-label{font-size:12px;color:var(--muted);font-weight:700;margin-left:auto}
+.inp-closed-label{font-size:12px;color:var(--muted);font-weight:700;flex:1;text-align:center}
 </style>
 </head>
 <body>
@@ -472,7 +472,7 @@ const LS_KEY = "cafeShift_v1";
 const ROOM_KEY = "cafeShift_room";
 const PREF_KEY = "cafeShift_remember";  // "1"/"0" : ログイン保持の希望
 const SESS_KEY = "cafeShift_session";   // {role, empId} : 自動ログイン用
-const APP_VERSION = "2026.07.04-20";     // ★デプロイのたびに version.json と同じ値へ上げる（開きっぱなし端末の自動更新用）
+const APP_VERSION = "2026.07.04-21";     // ★デプロイのたびに version.json と同じ値へ上げる（開きっぱなし端末の自動更新用）
 let soundOn = localStorage.getItem("cafeShift_sound")!=="0";  // 操作音 ON/OFF（この端末ごと・既定ON）
 /* 管理者ログイン通知（開発者だけ受信）。GASをデプロイしたら /exec URL をここに貼る。空なら何もしない */
 const LOGIN_NOTIFY_URL = "https://script.google.com/macros/s/AKfycbxbhtflLJNoXtsI-xe7Jw5FZfgWrVXiftQ4wIbtwkMCaBPKtH72a180RNSKkFMFKHKD/exec";
@@ -491,6 +491,7 @@ let empInputMode = "list";
 let empSchedScope = "mine";   // "mine" | "all"
 let empSchedDisp = "week0";  // "week0"=今週 | "week1"=来週 | "cal" : 従業員 確定シフト表示
 let _scrollEmpListToday=false;  // 希望入力リストを開いた時に本日へスクロール
+let _scrollShiftToday=false;    // 管理者シフト(今週)を開いた時に本日へスクロール
 let finalDisp = "list";      // "list" | "cal" : 管理者 出勤表示（旧・未使用）
 let shiftView = "week0";     // "week0"=今週 | "week1"=来週 | "cal"=カレンダー（管理者シフト）
 let adminCursor = new Date();
@@ -1118,6 +1119,7 @@ function closeModal(){ document.getElementById("modalBg").classList.remove("show
 /* ===================== ADMIN ===================== */
 function adminTab(t){
   adminView=t;
+  if(t==="shift") _scrollShiftToday=true;
   ["shift","closed","set"].forEach(x=>{
     document.getElementById("tab"+x.charAt(0).toUpperCase()+x.slice(1)).classList.toggle("on",x===t);
     document.getElementById("sv"+x.charAt(0).toUpperCase()+x.slice(1)).classList.toggle("active",x===t);
@@ -1220,9 +1222,10 @@ function toggleClosure(ds){
 }
 
 function isOpenException(ds){ return !!(store.opens && store.opens[ds] && defaultClosed(ds)); }
-function setShiftView(v){ shiftView=v; updateMonthNav(); renderShift(); }
+function setShiftView(v){ shiftView=v; if(v==="week0"||v==="week1") _scrollShiftToday=true; updateMonthNav(); renderShift(); }
 function renderShift(){
   const el=document.getElementById("shiftArea");
+  const doScroll=_scrollShiftToday; _scrollShiftToday=false;
   const seg='<div class="seg" style="margin-bottom:14px">'+
     '<button class="'+(shiftView==="week0"?"on":"")+'" onclick="setShiftView(\'week0\')">今週</button>'+
     '<button class="'+(shiftView==="week1"?"on":"")+'" onclick="setShiftView(\'week1\')">来週</button>'+
@@ -1240,13 +1243,14 @@ function renderShift(){
   dates.forEach(ds=>{
     const dt=new Date(ds);
     if(isClosed(ds)){
-      h+='<div class="week-closed"><span class="wc-date">🌙 '+(dt.getMonth()+1)+'/'+dt.getDate()+' ('+WD[dt.getDay()]+') はお休み</span><span class="wc-label">🚫 '+closeReason(ds)+'日</span></div>';
+      h+='<div class="week-closed" id="schd_'+ds+'"><span class="wc-date">🌙 '+(dt.getMonth()+1)+'/'+dt.getDate()+' ('+WD[dt.getDay()]+') はお休み</span><span class="wc-label">🚫 '+closeReason(ds)+'日</span></div>';
       return;
     }
     h+=shiftDayCard(ds);
   });
   el.innerHTML=h;
   attachSwipe();
+  if(doScroll){ setTimeout(function(){ var e=document.getElementById("schd_"+ymd(new Date())); if(e) e.scrollIntoView({behavior:"smooth",block:"center"}); },80); }
 }
 function shiftDayCard(ds){
   const dt=new Date(ds); const rec=store.avail[ds]||{}; const picked=store.schedule[ds]||[]; const c=dayCounts(ds);
