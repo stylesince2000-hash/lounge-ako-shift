@@ -264,7 +264,11 @@ input.pin::placeholder{letter-spacing:10px}
 .shift-divider{height:0;border-top:1.5px dashed var(--line);margin:14px 0 2px}
 .av.av-bunny{background:#fbe7ef;font-size:22px}
 .av-s.av-bunny{background:#fbe7ef}
-.inp-row{display:flex;align-items:center;gap:8px;background:var(--milk);border-radius:14px;padding:8px 12px;margin-bottom:8px;box-shadow:var(--shadow-sm)}
+.inp-row{display:flex;flex-direction:column;background:var(--milk);border-radius:14px;padding:8px 12px;margin-bottom:8px;box-shadow:var(--shadow-sm)}
+.inp-main{display:flex;align-items:center;gap:8px}
+.inp-top{font-size:12px;line-height:1.4;font-weight:600;border-radius:9px;padding:5px 10px;margin-bottom:7px}
+.inp-top.dn{background:#e7f0e9;color:#3f6b52}
+.inp-top.ev{background:#f4ece0;color:var(--espresso)}
 .inp-row.today-row{border:1.5px solid var(--latte)}
 .inp-row.closed{background:repeating-linear-gradient(45deg,#ece3d6,#ece3d6 5px,#e4d9c8 5px,#e4d9c8 10px)}
 .inp-date{font-weight:600;font-size:14px;color:var(--espresso);width:88px;flex-shrink:0}
@@ -472,7 +476,7 @@ const LS_KEY = "cafeShift_v1";
 const ROOM_KEY = "cafeShift_room";
 const PREF_KEY = "cafeShift_remember";  // "1"/"0" : ログイン保持の希望
 const SESS_KEY = "cafeShift_session";   // {role, empId} : 自動ログイン用
-const APP_VERSION = "2026.07.04-22";     // ★デプロイのたびに version.json と同じ値へ上げる（開きっぱなし端末の自動更新用）
+const APP_VERSION = "2026.07.04-23";     // ★デプロイのたびに version.json と同じ値へ上げる（開きっぱなし端末の自動更新用）
 let soundOn = localStorage.getItem("cafeShift_sound")!=="0";  // 操作音 ON/OFF（この端末ごと・既定ON）
 /* 管理者ログイン通知（開発者だけ受信）。GASをデプロイしたら /exec URL をここに貼る。空なら何もしない */
 const LOGIN_NOTIFY_URL = "https://script.google.com/macros/s/AKfycbxbhtflLJNoXtsI-xe7Jw5FZfgWrVXiftQ4wIbtwkMCaBPKtH72a180RNSKkFMFKHKD/exec";
@@ -1017,18 +1021,22 @@ function buildEmpList(){
   for(let d=1;d<=days;d++){
     const ds=ymd(new Date(y,m,d)); const dow=new Date(ds).getDay();
     const dcls=dow===0?" sun":(dow===6?" sat":"");
-    const ev=(store.events||{})[ds], dn=(store.dayNotes||{})[ds];
-    if(isClosed(ds)){ h+='<div class="inp-row closed" id="inprow_'+ds+'"><div class="inp-date'+dcls+'">'+(m+1)+'/'+d+' ('+WD[dow]+')</div><span class="inp-closed-label">'+closeReason(ds)+'</span></div>'; }
-    else {
+    const ev=(store.events||{})[ds], dn=(store.dayNotes||{})[ds], closed=isClosed(ds);
+    let top='';
+    if(dn) top+='<div class="inp-top dn">📢 '+esc(dn)+'</div>';
+    if(ev) top+='<div class="inp-top ev">📌 '+esc(ev)+'</div>';
+    let main;
+    if(closed){
+      main='<div class="inp-date'+dcls+'">'+(m+1)+'/'+d+' ('+WD[dow]+')</div><span class="inp-closed-label">'+closeReason(ds)+'</span>';
+    } else {
       const rec=(store.avail[ds]||{})[currentEmpId]; const mk=rec?rec.mk:null;
-      h+='<div class="inp-row'+(ds===todayStr?' today-row':'')+'" id="inprow_'+ds+'"><div class="inp-date'+dcls+'">'+(m+1)+'/'+d+' ('+WD[dow]+')</div><div class="inp-btns">';
-      h+='<button class="mkbtn m'+(mk==="maru"?" on":"")+'" onclick="setMark(\''+ds+'\',\'maru\')">○</button>';
-      h+='<button class="mkbtn s'+(mk==="sankaku"?" on":"")+'" onclick="setMark(\''+ds+'\',\'sankaku\')">△</button>';
-      h+='<button class="mkbtn b'+(mk==="batsu"?" on":"")+'" onclick="setMark(\''+ds+'\',\'batsu\')">×</button>';
-      h+='</div><button class="notebtn" onclick="openMarkModal(\''+ds+'\')">'+(rec&&rec.note?"📝":"✎")+'</button></div>';
+      main='<div class="inp-date'+dcls+'">'+(m+1)+'/'+d+' ('+WD[dow]+')</div><div class="inp-btns">'+
+        '<button class="mkbtn m'+(mk==="maru"?" on":"")+'" onclick="setMark(\''+ds+'\',\'maru\')">○</button>'+
+        '<button class="mkbtn s'+(mk==="sankaku"?" on":"")+'" onclick="setMark(\''+ds+'\',\'sankaku\')">△</button>'+
+        '<button class="mkbtn b'+(mk==="batsu"?" on":"")+'" onclick="setMark(\''+ds+'\',\'batsu\')">×</button>'+
+        '</div><button class="notebtn" onclick="openMarkModal(\''+ds+'\')">'+(rec&&rec.note?"📝":"✎")+'</button>';
     }
-    if(ev) h+='<div class="inp-info">📌 <b>'+(m+1)+'/'+d+'('+WD[dow]+') イベント:</b> '+esc(ev)+'</div>';
-    if(dn) h+='<div class="inp-info dn">📢 <b>'+(m+1)+'/'+d+'('+WD[dow]+') 伝達事項:</b> '+esc(dn)+'</div>';
+    h+='<div class="inp-row'+(closed?' closed':'')+((ds===todayStr&&!closed)?' today-row':'')+'" id="inprow_'+ds+'">'+top+'<div class="inp-main">'+main+'</div></div>';
   }
   el.innerHTML=h;
   computeEmpSummary();
