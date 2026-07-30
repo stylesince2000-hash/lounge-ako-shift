@@ -478,7 +478,7 @@ const LS_KEY = "cafeShift_v1";
 const ROOM_KEY = "cafeShift_room";
 const PREF_KEY = "cafeShift_remember";  // "1"/"0" : ログイン保持の希望
 const SESS_KEY = "cafeShift_session";   // {role, empId} : 自動ログイン用
-const APP_VERSION = "2026.07.04-24";     // ★デプロイのたびに version.json と同じ値へ上げる（開きっぱなし端末の自動更新用）
+const APP_VERSION = "2026.07.04-25";     // ★デプロイのたびに version.json と同じ値へ上げる（開きっぱなし端末の自動更新用）
 let soundOn = localStorage.getItem("cafeShift_sound")!=="0";  // 操作音 ON/OFF（この端末ごと・既定ON）
 /* 管理者ログイン通知（開発者だけ受信）。GASをデプロイしたら /exec URL をここに貼る。空なら何もしない */
 const LOGIN_NOTIFY_URL = "https://script.google.com/macros/s/AKfycbxbhtflLJNoXtsI-xe7Jw5FZfgWrVXiftQ4wIbtwkMCaBPKtH72a180RNSKkFMFKHKD/exec";
@@ -682,7 +682,7 @@ function doLogin(){
   const remember = document.getElementById("rememberChk").checked;
   localStorage.setItem(PREF_KEY, remember?"1":"0");
   if(remember) sessionSave(); else localStorage.removeItem(SESS_KEY);
-  if(role==="emp"){ currentEmpId=null; show("emp"); renderEmpName(); }
+  if(role==="emp"){ resetEmpView(); currentEmpId=null; show("emp"); renderEmpName(); }
   else { syncSettingsForm(); show("admin"); adminTab("shift"); renderAll(); }
 }
 function confirmLogout(){
@@ -690,7 +690,9 @@ function confirmLogout(){
     '<div style="display:flex;gap:10px"><button class="btn btn-ghost" onclick="closeModal()">キャンセル</button>'+
     '<button class="btn btn-primary" onclick="closeModal();logout()">ログアウト</button></div>');
 }
-function logout(){ localStorage.removeItem(SESS_KEY); currentEmpId=null; isDev=false; show("login"); setRole("emp"); }
+/* 従業員の表示状態を既定へ戻す（ログイン/ログアウト時。共有端末で前の人の選択が残らないように） */
+function resetEmpView(){ empViewMode="input"; empInputMode="week0"; empSchedDisp="week0"; empSchedScope="mine"; empCursor=new Date(); }
+function logout(){ resetEmpView(); localStorage.removeItem(SESS_KEY); currentEmpId=null; isDev=false; show("login"); setRole("emp"); }
 function updateDevUI(){
   const v=isDev?"flex":"none";
   const a=document.getElementById("empDevBtn"); if(a) a.style.display=v;
