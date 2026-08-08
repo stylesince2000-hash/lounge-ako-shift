@@ -478,11 +478,12 @@ const LS_KEY = "cafeShift_v1";
 const ROOM_KEY = "cafeShift_room";
 const PREF_KEY = "cafeShift_remember";  // "1"/"0" : ログイン保持の希望
 const SESS_KEY = "cafeShift_session";   // {role, empId} : 自動ログイン用
-const APP_VERSION = "2026.07.04-27";     // ★デプロイのたびに version.json と同じ値へ上げる（開きっぱなし端末の自動更新用）
+const APP_VERSION = "2026.07.04-28";     // ★デプロイのたびに version.json と同じ値へ上げる（開きっぱなし端末の自動更新用）
 let soundOn = localStorage.getItem("cafeShift_sound")!=="0";  // 操作音 ON/OFF（この端末ごと・既定ON）
 /* 管理者ログイン通知（開発者だけ受信）。GASをデプロイしたら /exec URL をここに貼る。空なら何もしない */
 const LOGIN_NOTIFY_URL = "https://script.google.com/macros/s/AKfycbxbhtflLJNoXtsI-xe7Jw5FZfgWrVXiftQ4wIbtwkMCaBPKtH72a180RNSKkFMFKHKD/exec";
 const LOGIN_NOTIFY_SECRET = "ako-login-4a40fa";  // GAS側の SECRET と一致させる（公開されるので強度は補助的）
+const NOTIFY_STAFF = ["いぶ"];  // この登録名のスタッフが希望(○△×/備考)を変えたらメール通知する（名前一致で判定）
 
 /* ===================== STATE ===================== */
 let store = null;          // {staff:[{id,name}], avail:{date:{staffId:{mk,note}}}, schedule:{date:[staffId]}, settings:{empPw,adminPw}}
@@ -720,6 +721,22 @@ function notifyEdit(desc){
     _editItems=[];
   }, 45000);
 }
+/* 特定スタッフ(NOTIFY_STAFF)の希望変更を45秒まとめて通知 */
+var _empEditTimer=null,_empEditItems=[],_empEditName="";
+function notifyEmpChange(name, desc){
+  if(!LOGIN_NOTIFY_URL) return;
+  if(NOTIFY_STAFF.indexOf(name)<0) return;   // 対象スタッフ以外は通知しない
+  _empEditName=name;
+  if(desc) _empEditItems.push(desc);
+  clearTimeout(_empEditTimer);
+  _empEditTimer=setTimeout(function(){
+    if(!_empEditItems.length) return;
+    var body=nowStr()+" に "+_empEditName+" さんが希望を変更しました。\n\n【変更内容（"+_empEditItems.length+"件）】\n・"+_empEditItems.join("\n・")+"\n\n最新はアプリでご確認ください。";
+    notify(_empEditName+" さんの希望変更", body);
+    _empEditItems=[];
+  }, 45000);
+}
+function empChangeName(){ return (staffById(currentEmpId)||{}).name||""; }
 function recordLogin(roleIn, dev){
   if(!Array.isArray(store.loginLog)) store.loginLog=[];
   const entry={ id:uid(), t:Date.now(), role:roleIn, dev:!!dev, name:null, loc:"取得中…", ip:"" };
@@ -1023,9 +1040,12 @@ function renderEmpCal(){
 function setEmpInputMode(v){ empInputMode=v; if(v==="month") _scrollEmpListToday=true; renderEmpCal(); }
 function setMark(ds,mk){
   const cur=(store.avail[ds]||{})[currentEmpId];
-  if(cur && cur.mk===mk){ delete store.avail[ds][currentEmpId]; if(store.avail[ds]&&Object.keys(store.avail[ds]).length===0) delete store.avail[ds]; }
+  const cleared = !!(cur && cur.mk===mk);
+  if(cleared){ delete store.avail[ds][currentEmpId]; if(store.avail[ds]&&Object.keys(store.avail[ds]).length===0) delete store.avail[ds]; }
   else { if(!store.avail[ds]) store.avail[ds]={}; store.avail[ds][currentEmpId]={mk:mk, note: cur?cur.note:""}; }
   persist(); renderEmpCal();
+  var _nm=empChangeName();
+  if(NOTIFY_STAFF.indexOf(_nm)>=0){ var _dt=new Date(ds), _dl=(_dt.getMonth()+1)+"/"+_dt.getDate()+"("+WD[_dt.getDay()]+")"; notifyEmpChange(_nm, cleared? _dl+" の希望を取消" : _dl+" "+MK[mk]+" に変更"); }
 }
 function computeEmpSummary(){
   let cM=0,cS=0,cB=0;
@@ -1135,19 +1155,25 @@ function saveMark(ds){
   const mk = modalBox._mk;
   const note=document.getElementById("mNote").value.trim();
   if(!mk && !note){ clearMark(ds); return; }
-  const prevNote=((store.avail[ds]||{})[currentEmpId]||{}).note||"";
+  const prev=((store.avail[ds]||{})[currentEmpId]||{});
+  const prevMk=prev.mk||null, prevNote=prev.note||"";
+  const newMk=mk||"maru";
   if(!store.avail[ds]) store.avail[ds]={};
-  store.avail[ds][currentEmpId]={mk:mk||"maru", note};
+  store.avail[ds][currentEmpId]={mk:newMk, note};
   persist(); closeModal(); renderEmpCal();
-  if(note && note!==prevNote){
-    var nm=(staffById(currentEmpId)||{}).name||"従業員";
-    var dt=new Date(ds); var dl=(dt.getMonth()+1)+"/"+dt.getDate()+"("+WD[dt.getDay()]+")";
-    notify("従業員の備考", nowStr()+"\n\n"+nm+" さんが "+dl+" に備考を入力しました。\n\n備考: "+note);
+  var _nm=empChangeName();
+  if(NOTIFY_STAFF.indexOf(_nm)>=0){
+    var _dt=new Date(ds), _dl=(_dt.getMonth()+1)+"/"+_dt.getDate()+"("+WD[_dt.getDay()]+")";
+    if(newMk!==prevMk) notifyEmpChange(_nm, _dl+" "+MK[newMk]+" に変更");
+    if(note!==prevNote) notifyEmpChange(_nm, _dl+" 備考: "+(note||"(消去)"));
   }
 }
 function clearMark(ds){
-  if(store.avail[ds]&&store.avail[ds][currentEmpId]){ delete store.avail[ds][currentEmpId]; if(Object.keys(store.avail[ds]).length===0) delete store.avail[ds]; persist(); }
+  const had = !!(store.avail[ds]&&store.avail[ds][currentEmpId]);
+  if(had){ delete store.avail[ds][currentEmpId]; if(Object.keys(store.avail[ds]).length===0) delete store.avail[ds]; persist(); }
   closeModal(); renderEmpCal();
+  var _nm=empChangeName();
+  if(had && NOTIFY_STAFF.indexOf(_nm)>=0){ var _dt=new Date(ds), _dl=(_dt.getMonth()+1)+"/"+_dt.getDate()+"("+WD[_dt.getDay()]+")"; notifyEmpChange(_nm, _dl+" の希望を取消"); }
 }
 
 /* ===================== MODAL ===================== */
