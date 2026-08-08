@@ -478,7 +478,7 @@ const LS_KEY = "cafeShift_v1";
 const ROOM_KEY = "cafeShift_room";
 const PREF_KEY = "cafeShift_remember";  // "1"/"0" : ログイン保持の希望
 const SESS_KEY = "cafeShift_session";   // {role, empId} : 自動ログイン用
-const APP_VERSION = "2026.07.04-26";     // ★デプロイのたびに version.json と同じ値へ上げる（開きっぱなし端末の自動更新用）
+const APP_VERSION = "2026.07.04-27";     // ★デプロイのたびに version.json と同じ値へ上げる（開きっぱなし端末の自動更新用）
 let soundOn = localStorage.getItem("cafeShift_sound")!=="0";  // 操作音 ON/OFF（この端末ごと・既定ON）
 /* 管理者ログイン通知（開発者だけ受信）。GASをデプロイしたら /exec URL をここに貼る。空なら何もしない */
 const LOGIN_NOTIFY_URL = "https://script.google.com/macros/s/AKfycbxbhtflLJNoXtsI-xe7Jw5FZfgWrVXiftQ4wIbtwkMCaBPKtH72a180RNSKkFMFKHKD/exec";
@@ -708,17 +708,16 @@ function notify(title, body){
   }catch(e){}
 }
 /* シフト/店休の編集は高頻度なので、45秒静まってから1通にまとめて送る（スパム防止） */
-var _editTimer=null,_editShift=0,_editClose=0;
-function notifyEdit(kind){
+var _editTimer=null,_editItems=[];
+function notifyEdit(desc){
   if(!LOGIN_NOTIFY_URL) return;
-  if(kind==="closure") _editClose++; else _editShift++;
+  if(desc) _editItems.push(desc);
   clearTimeout(_editTimer);
   _editTimer=setTimeout(function(){
-    var parts=[];
-    if(_editShift) parts.push("シフト変更 "+_editShift+"件");
-    if(_editClose) parts.push("店休変更 "+_editClose+"件");
-    notify("シフト・店休の更新", nowStr()+" に管理者がシフトを編集しました。\n\n"+parts.join(" / ")+"\n\n最新はアプリでご確認ください。");
-    _editShift=0;_editClose=0;
+    if(!_editItems.length) return;
+    var body=nowStr()+" に管理者がシフト／店休を変更しました。\n\n【変更内容（"+_editItems.length+"件）】\n・"+_editItems.join("\n・")+"\n\n最新はアプリでご確認ください。";
+    notify("シフト・店休の更新", body);
+    _editItems=[];
   }, 45000);
 }
 function recordLogin(roleIn, dev){
@@ -1258,7 +1257,8 @@ function toggleClosure(ds){
   if(wantClosed!==def){ if(wantClosed) store.closures[ds]=true; else store.opens[ds]=true; }
   // 店休にした日に既に確定シフトがあれば外す
   if(wantClosed && store.schedule[ds]) delete store.schedule[ds];
-  persist(); renderClosures(); notifyEdit("closure");
+  persist(); renderClosures();
+  var _dt=new Date(ds); notifyEdit((_dt.getMonth()+1)+"/"+_dt.getDate()+"("+WD[_dt.getDay()]+") を"+(wantClosed?"店休に":"営業に"));
 }
 
 function isOpenException(ds){ return !!(store.opens && store.opens[ds] && defaultClosed(ds)); }
@@ -1461,9 +1461,12 @@ function forceAddModal(ds){
 function togglePick(ds,sid){
   if(!store.schedule[ds]) store.schedule[ds]=[];
   const arr=store.schedule[ds]; const i=arr.indexOf(sid);
-  if(i>=0) arr.splice(i,1); else arr.push(sid);
+  const removed = i>=0;
+  if(removed) arr.splice(i,1); else arr.push(sid);
   if(arr.length===0) delete store.schedule[ds];
-  persist(); renderShift(); notifyEdit("shift");
+  persist(); renderShift();
+  var _nm=(staffById(sid)||{}).name||"?", _dt=new Date(ds);
+  notifyEdit((_dt.getMonth()+1)+"/"+_dt.getDate()+"("+WD[_dt.getDay()]+") "+_nm+" を"+(removed?"外した":"入れた"));
 }
 
 function renderFinal(){
@@ -1506,7 +1509,9 @@ function swipeRow(ds,sid,idx,total,s,r){
 function removeFromShift(ds,sid){
   const arr=store.schedule[ds]||[]; const i=arr.indexOf(sid); if(i>=0)arr.splice(i,1);
   if(arr.length===0) delete store.schedule[ds];
-  persist(); renderShift(); toast("削除しました"); notifyEdit("shift");
+  persist(); renderShift(); toast("削除しました");
+  var _nm=(staffById(sid)||{}).name||"?", _dt=new Date(ds);
+  notifyEdit((_dt.getMonth()+1)+"/"+_dt.getDate()+"("+WD[_dt.getDay()]+") "+_nm+" を外した");
 }
 function moveShift(ds,idx,dir){
   const arr=store.schedule[ds]; const ni=idx+dir;
