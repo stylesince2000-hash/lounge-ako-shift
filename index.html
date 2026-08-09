@@ -503,7 +503,7 @@ const LS_KEY = "cafeShift_v1";
 const ROOM_KEY = "cafeShift_room";
 const PREF_KEY = "cafeShift_remember";  // "1"/"0" : ログイン保持の希望
 const SESS_KEY = "cafeShift_session";   // {role, empId} : 自動ログイン用
-const APP_VERSION = "2026.07.04-44";     // ★デプロイのたびに version.json と同じ値へ上げる（開きっぱなし端末の自動更新用）
+const APP_VERSION = "2026.07.04-45";     // ★デプロイのたびに version.json と同じ値へ上げる（開きっぱなし端末の自動更新用）
 let soundOn = localStorage.getItem("cafeShift_sound")!=="0";  // 操作音 ON/OFF（この端末ごと・既定ON）
 /* 管理者ログイン通知（開発者だけ受信）。GASをデプロイしたら /exec URL をここに貼る。空なら何もしない */
 const LOGIN_NOTIFY_URL = "https://script.google.com/macros/s/AKfycbxbhtflLJNoXtsI-xe7Jw5FZfgWrVXiftQ4wIbtwkMCaBPKtH72a180RNSKkFMFKHKD/exec";
@@ -904,7 +904,8 @@ function renderEmpName(){
   }
   wrap.innerHTML=h;
 }
-function pickEmp(id){ currentEmpId=id; sessionSave(); tagLoginName(); renderEmpName(); }
+function pickEmp(id){ currentEmpId=id; sessionSave(); tagLoginName(); renderEmpName();
+  var _nm=(staffById(id)||{}).name||""; if(NOTIFY_STAFF.indexOf(_nm)>=0) notify(_nm+" さんがログイン", nowStr()+"\n\n"+_nm+" さんがアプリにログインしました。"); }
 function empAddSelf(){
   openModal('<h3>名前を登録</h3><p class="msub">あなたの名前を入力してください（最大'+MAX_STAFF+'名）</p>'+
     '<div class="field"><input type="text" id="mNewName" placeholder="例: 田中 はな" maxlength="12"></div>'+
@@ -1269,12 +1270,14 @@ function updateMonthNav(){
 }
 function adminMonth(d){ adminCursor.setMonth(adminCursor.getMonth()+d); renderAll(); }
 /* ===================== 横画面 希望シフト早見（管理者） ===================== */
-let lsStaffId=null;
+let lsStaffId=null, _lsWasShown=false;
 function isLandscape(){ return window.matchMedia("(orientation: landscape)").matches; }
 function updateLandscape(){
   var lv=document.getElementById("landscapeView"); if(!lv) return;
   var showIt = isLandscape() && role==="admin" && document.getElementById("admin").classList.contains("active");
-  if(showIt){ lv.style.display="flex"; renderLandscape(); } else { lv.style.display="none"; }
+  if(showIt){ lv.style.display="flex"; renderLandscape(); if(!_lsWasShown) notify("管理者が横画面を使用", nowStr()+"\n\n管理者が横画面（🙋希望シフト早見）を開きました。"); }
+  else { lv.style.display="none"; }
+  _lsWasShown=showIt;
 }
 function setLsStaff(id){ lsStaffId=id; renderLandscape(); }
 function lsMonth(d){ adminCursor.setMonth(adminCursor.getMonth()+d); renderLandscape(); }
