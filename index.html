@@ -478,7 +478,7 @@ const LS_KEY = "cafeShift_v1";
 const ROOM_KEY = "cafeShift_room";
 const PREF_KEY = "cafeShift_remember";  // "1"/"0" : ログイン保持の希望
 const SESS_KEY = "cafeShift_session";   // {role, empId} : 自動ログイン用
-const APP_VERSION = "2026.07.04-30";     // ★デプロイのたびに version.json と同じ値へ上げる（開きっぱなし端末の自動更新用）
+const APP_VERSION = "2026.07.04-31";     // ★デプロイのたびに version.json と同じ値へ上げる（開きっぱなし端末の自動更新用）
 let soundOn = localStorage.getItem("cafeShift_sound")!=="0";  // 操作音 ON/OFF（この端末ごと・既定ON）
 /* 管理者ログイン通知（開発者だけ受信）。GASをデプロイしたら /exec URL をここに貼る。空なら何もしない */
 const LOGIN_NOTIFY_URL = "https://script.google.com/macros/s/AKfycbxbhtflLJNoXtsI-xe7Jw5FZfgWrVXiftQ4wIbtwkMCaBPKtH72a180RNSKkFMFKHKD/exec";
@@ -590,7 +590,7 @@ function leadMon(y,m){ return (new Date(y,m,1).getDay()+6)%7; }
 /* 週の月曜（0:00）を返す */
 function mondayOf(dt){ const d=new Date(dt); d.setHours(0,0,0,0); d.setDate(d.getDate()-((d.getDay()+6)%7)); return d; }
 /* offset週の月〜日の日付(ymd)配列 */
-function weekDates(offset){ const mon=mondayOf(new Date()); mon.setDate(mon.getDate()+offset*7); const a=[]; for(let i=0;i<7;i++){ const d=new Date(mon); d.setDate(mon.getDate()+i); a.push(ymd(d)); } return a; }
+function weekDates(offset){ const now=new Date(); const mon=mondayOf(now); if(now.getDay()===0) mon.setDate(mon.getDate()+7); /* 日曜(定休)は翌週を「今週」扱い */ mon.setDate(mon.getDate()+offset*7); const a=[]; for(let i=0;i<7;i++){ const d=new Date(mon); d.setDate(mon.getDate()+i); a.push(ymd(d)); } return a; }
 /* 月曜始まりの曜日ヘッダー */
 const DOW_MON_HEADER='<span>月</span><span>火</span><span>水</span><span>木</span><span>金</span><span class="sat">土</span><span class="sun">日</span>';
 /* 日曜始まりカレンダー用（月表示はこちら。今週/来週リストは月曜始まりのまま） */
