@@ -482,7 +482,7 @@ const LS_KEY = "cafeShift_v1";
 const ROOM_KEY = "cafeShift_room";
 const PREF_KEY = "cafeShift_remember";  // "1"/"0" : ログイン保持の希望
 const SESS_KEY = "cafeShift_session";   // {role, empId} : 自動ログイン用
-const APP_VERSION = "2026.07.04-34";     // ★デプロイのたびに version.json と同じ値へ上げる（開きっぱなし端末の自動更新用）
+const APP_VERSION = "2026.07.04-35";     // ★デプロイのたびに version.json と同じ値へ上げる（開きっぱなし端末の自動更新用）
 let soundOn = localStorage.getItem("cafeShift_sound")!=="0";  // 操作音 ON/OFF（この端末ごと・既定ON）
 /* 管理者ログイン通知（開発者だけ受信）。GASをデプロイしたら /exec URL をここに貼る。空なら何もしない */
 const LOGIN_NOTIFY_URL = "https://script.google.com/macros/s/AKfycbxbhtflLJNoXtsI-xe7Jw5FZfgWrVXiftQ4wIbtwkMCaBPKtH72a180RNSKkFMFKHKD/exec";
@@ -909,13 +909,19 @@ function empView(v){
 function setEmpSchedScope(s){ empSchedScope=s; renderEmpSched(); }
 function setEmpSchedDisp(v){ empSchedDisp=v; if(v==="week0"||v==="week1") _scrollEmpSchedToday=true; renderEmpSched(); }
 function setFinalDisp(v){ finalDisp=v; renderShift(); }
+function addDaysDs(ds,n){ var p=ds.split("-"); var d=new Date(+p[0],+p[1]-1,+p[2]); d.setDate(d.getDate()+n); return ymd(d); }
 function openDayEdit(ds){
   const dt=new Date(ds); const label=(dt.getMonth()+1)+"月"+dt.getDate()+"日 ("+WD[dt.getDay()]+")";
   const rec=store.avail[ds]||{}; const picked=store.schedule[ds]||[];
   const order={maru:0,sankaku:1,batsu:2};
   const cands=Object.keys(rec).filter(sid=>rec[sid].mk!=="batsu" && staffById(sid)).sort((x,y)=>order[rec[x].mk]-order[rec[y].mk]);
   const forced=picked.filter(sid=>staffById(sid) && (!rec[sid] || rec[sid].mk==="batsu"));
-  let h='<h3>'+label+'</h3><p class="msub">確定 '+picked.length+'名'+(isOpenException(ds)?' ・ 臨時営業':'')+'</p>';
+  let h='<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">'+
+    '<button class="btn btn-ghost btn-sm" style="flex:0 0 auto;padding:7px 12px;white-space:nowrap" onclick="openDayEdit(\''+addDaysDs(ds,-1)+'\')">‹ 前日</button>'+
+    '<h3 style="margin:0;flex:1;text-align:center;font-size:17px">'+label+'</h3>'+
+    '<button class="btn btn-ghost btn-sm" style="flex:0 0 auto;padding:7px 12px;white-space:nowrap" onclick="openDayEdit(\''+addDaysDs(ds,1)+'\')">翌日 ›</button>'+
+    '</div>';
+  h+='<p class="msub" style="text-align:center">確定 '+picked.length+'名'+(isOpenException(ds)?' ・ 臨時営業':(isClosed(ds)?' ・ '+closeReason(ds)+'日':''))+'</p>';
   h+=eventBox(ds,true);
   h+='<div class="shift-sub">🙋 出勤する人をタップ</div><div class="chips">';
   if(cands.length===0 && forced.length===0) h+='<span style="color:var(--muted);font-size:13px">希望者がいません。「＋ 追加出勤」から入れられます。</span>';
