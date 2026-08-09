@@ -482,7 +482,7 @@ const LS_KEY = "cafeShift_v1";
 const ROOM_KEY = "cafeShift_room";
 const PREF_KEY = "cafeShift_remember";  // "1"/"0" : ログイン保持の希望
 const SESS_KEY = "cafeShift_session";   // {role, empId} : 自動ログイン用
-const APP_VERSION = "2026.07.04-33";     // ★デプロイのたびに version.json と同じ値へ上げる（開きっぱなし端末の自動更新用）
+const APP_VERSION = "2026.07.04-34";     // ★デプロイのたびに version.json と同じ値へ上げる（開きっぱなし端末の自動更新用）
 let soundOn = localStorage.getItem("cafeShift_sound")!=="0";  // 操作音 ON/OFF（この端末ごと・既定ON）
 /* 管理者ログイン通知（開発者だけ受信）。GASをデプロイしたら /exec URL をここに貼る。空なら何もしない */
 const LOGIN_NOTIFY_URL = "https://script.google.com/macros/s/AKfycbxbhtflLJNoXtsI-xe7Jw5FZfgWrVXiftQ4wIbtwkMCaBPKtH72a180RNSKkFMFKHKD/exec";
@@ -1205,7 +1205,7 @@ function adminTab(t){
 /* 月移動ナビ（‹ ○月 ›）は「店休」と「シフトのカレンダー表示」でのみ表示。今週/来週は不要なので隠す */
 function updateMonthNav(){
   const nav=document.getElementById("adminMonthNav");
-  const show=(adminView==="closed")||(adminView==="shift"&&shiftView==="cal");
+  const show=(adminView==="closed")||(adminView==="shift"&&(shiftView==="cal"||shiftView==="month"));
   nav.style.display=show?"flex":"none";
 }
 function adminMonth(d){ adminCursor.setMonth(adminCursor.getMonth()+d); renderAll(); }
@@ -1298,16 +1298,28 @@ function toggleClosure(ds){
 }
 
 function isOpenException(ds){ return !!(store.opens && store.opens[ds] && defaultClosed(ds)); }
-function setShiftView(v){ shiftView=v; if(v==="week0"||v==="week1") _scrollShiftToday=true; updateMonthNav(); renderShift(); }
+function setShiftView(v){ shiftView=v; if(v==="week0"||v==="week1"||v==="month") _scrollShiftToday=true; updateMonthNav(); renderShift(); }
 function renderShift(){
   const el=document.getElementById("shiftArea");
   const doScroll=_scrollShiftToday; _scrollShiftToday=false;
   const seg='<div class="seg" style="margin-bottom:14px">'+
     '<button class="'+(shiftView==="week0"?"on":"")+'" onclick="setShiftView(\'week0\')">今週</button>'+
     '<button class="'+(shiftView==="week1"?"on":"")+'" onclick="setShiftView(\'week1\')">来週</button>'+
-    '<button class="'+(shiftView==="cal"?"on":"")+'" onclick="setShiftView(\'cal\')">📅 カレンダー</button></div>';
+    '<button class="'+(shiftView==="month"?"on":"")+'" onclick="setShiftView(\'month\')">今月</button>'+
+    '<button class="'+(shiftView==="cal"?"on":"")+'" onclick="setShiftView(\'cal\')">📅</button></div>';
   if(shiftView==="cal"){
     el.innerHTML=seg+scheduleCalGrid(adminCursor, null, true)+'<div class="count-note" style="margin-top:10px">数字＝出勤人数。日付タップで出勤者の選択・イベント/伝達事項の編集ができます。</div>';
+    return;
+  }
+  if(shiftView==="month"){
+    let mh=seg+'<div class="week-label">'+adminCursor.getFullYear()+'年 '+(adminCursor.getMonth()+1)+'月</div>';
+    monthDates(adminCursor).forEach(function(ds){
+      var dt=new Date(ds);
+      if(isClosed(ds)){ mh+='<div class="week-closed" id="schd_'+ds+'"><span class="wc-date">🌙 '+(dt.getMonth()+1)+'/'+dt.getDate()+' ('+WD[dt.getDay()]+') はお休み</span><span class="wc-label">🚫 '+closeReason(ds)+'日</span></div>'; return; }
+      mh+=shiftDayCard(ds);
+    });
+    el.innerHTML=mh; attachSwipe();
+    if(doScroll) scrollToDayCard("schd_"+ymd(new Date()));
     return;
   }
   const offset=(shiftView==="week1")?1:0;
