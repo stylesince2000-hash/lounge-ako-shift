@@ -284,6 +284,22 @@ input.pin::placeholder{letter-spacing:10px}
 .mkbtn.b.on{background:#f6e2e3;border-color:var(--rose);color:var(--rose)}
 .notebtn{background:var(--foam);border:none;border-radius:10px;width:38px;height:38px;font-size:15px;cursor:pointer;flex-shrink:0;color:var(--coffee)}
 .inp-closed-label{font-size:12px;color:var(--muted);font-weight:700}
+/* 横画面 希望シフト早見 */
+#landscapeView{display:none;position:fixed;inset:0;z-index:80;background:linear-gradient(160deg,#efe4d6,#f6efe6 40%,#efe6da);flex-direction:column;padding:calc(env(safe-area-inset-top) + 10px) 16px 14px}
+.ls-head{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:10px}
+.ls-title{font-weight:700;color:var(--espresso);font-size:16px;white-space:nowrap}
+.ls-mnav{display:flex;align-items:center;gap:8px}
+.ls-mnav button{width:34px;height:34px;border-radius:10px;border:none;background:var(--foam);color:var(--coffee);font-size:16px;cursor:pointer}
+.ls-mnav span{font-weight:700;color:var(--espresso);min-width:108px;text-align:center;font-size:14px}
+.ls-body{display:flex;gap:12px;flex:1;min-height:0}
+.ls-staff{width:118px;flex:0 0 auto;overflow-y:auto;display:flex;flex-direction:column;gap:6px;padding-right:2px}
+.ls-staffbtn{padding:9px 8px;border-radius:10px;border:1.5px solid var(--line);background:var(--milk);color:var(--ink);font-size:14px;font-weight:600;cursor:pointer;text-align:center;font-family:inherit;flex-shrink:0}
+.ls-staffbtn.on{background:var(--coffee);color:#fff;border-color:var(--coffee)}
+.ls-cal{flex:1;overflow-y:auto;min-width:0}
+.ls-calhead{font-size:14px;color:var(--espresso);margin-bottom:6px}
+.ls-cnt{color:var(--muted);font-size:12.5px;margin-left:8px;white-space:nowrap}
+.ls-cal .cal .day{aspect-ratio:auto;min-height:40px}
+@media (orientation:portrait){#landscapeView{display:none !important}}
 </style>
 </head>
 <body>
@@ -458,6 +474,7 @@ input.pin::placeholder{letter-spacing:10px}
 </div>
 <div class="toast" id="toast"></div>
 <button class="to-top" id="toTopBtn" onclick="goTop()" aria-label="上へ戻る">↑</button>
+<div id="landscapeView"></div>
 
 <!-- Firebase (optional). 設定すると全端末で共有されます。未設定なら自動でこの端末だけのローカル保存になります。 -->
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
@@ -483,7 +500,7 @@ const LS_KEY = "cafeShift_v1";
 const ROOM_KEY = "cafeShift_room";
 const PREF_KEY = "cafeShift_remember";  // "1"/"0" : ログイン保持の希望
 const SESS_KEY = "cafeShift_session";   // {role, empId} : 自動ログイン用
-const APP_VERSION = "2026.07.04-39";     // ★デプロイのたびに version.json と同じ値へ上げる（開きっぱなし端末の自動更新用）
+const APP_VERSION = "2026.07.04-40";     // ★デプロイのたびに version.json と同じ値へ上げる（開きっぱなし端末の自動更新用）
 let soundOn = localStorage.getItem("cafeShift_sound")!=="0";  // 操作音 ON/OFF（この端末ごと・既定ON）
 /* 管理者ログイン通知（開発者だけ受信）。GASをデプロイしたら /exec URL をここに貼る。空なら何もしない */
 const LOGIN_NOTIFY_URL = "https://script.google.com/macros/s/AKfycbxbhtflLJNoXtsI-xe7Jw5FZfgWrVXiftQ4wIbtwkMCaBPKtH72a180RNSKkFMFKHKD/exec";
@@ -663,7 +680,7 @@ function uid(){ return "s"+Date.now().toString(36)+Math.random().toString(36).sl
 function toast(msg){ const t=document.getElementById("toast"); t.textContent=msg; t.classList.add("show"); setTimeout(()=>t.classList.remove("show"),1800); }
 
 /* ===================== SCREEN NAV ===================== */
-function show(id){ document.querySelectorAll(".screen").forEach(s=>s.classList.remove("active")); document.getElementById(id).classList.add("active"); window.scrollTo(0,0); }
+function show(id){ document.querySelectorAll(".screen").forEach(s=>s.classList.remove("active")); document.getElementById(id).classList.add("active"); window.scrollTo(0,0); if(typeof updateLandscape==="function") updateLandscape(); }
 function setRole(r){
   role=r;
   document.getElementById("segEmp").classList.toggle("on",r==="emp");
@@ -1248,6 +1265,47 @@ function updateMonthNav(){
   nav.style.display=show?"flex":"none";
 }
 function adminMonth(d){ adminCursor.setMonth(adminCursor.getMonth()+d); renderAll(); }
+/* ===================== 横画面 希望シフト早見（管理者） ===================== */
+let lsStaffId=null;
+function isLandscape(){ return window.matchMedia("(orientation: landscape)").matches; }
+function updateLandscape(){
+  var lv=document.getElementById("landscapeView"); if(!lv) return;
+  var showIt = isLandscape() && role==="admin" && document.getElementById("admin").classList.contains("active");
+  if(showIt){ lv.style.display="flex"; renderLandscape(); } else { lv.style.display="none"; }
+}
+function setLsStaff(id){ lsStaffId=id; renderLandscape(); }
+function lsMonth(d){ adminCursor.setMonth(adminCursor.getMonth()+d); renderLandscape(); }
+function staffAvailGrid(cursor, staffId){
+  var y=cursor.getFullYear(), m=cursor.getMonth();
+  var first=leadSun(y,m), days=new Date(y,m+1,0).getDate();
+  var todayStr=ymd(new Date());
+  var h='<div class="cal"><div class="dow">'+DOW_SUN_HEADER+'</div><div class="grid">';
+  for(var i=0;i<first;i++) h+='<div class="day empty"></div>';
+  for(var d=1;d<=days;d++){
+    var ds=ymd(new Date(y,m,d)); var dow=new Date(ds).getDay();
+    var cls="day"; if(dow===0)cls+=" sun"; if(dow===6)cls+=" sat"; if(ds===todayStr)cls+=" today";
+    if(isClosed(ds)){ h+='<div class="'+cls+' closed"><span class="dn">'+d+'</span><span class="clbl">'+closeReason(ds)+'</span></div>'; continue; }
+    var r=(store.avail[ds]||{})[staffId]; var mk=r?r.mk:null;
+    if(mk)cls+=" "+mk;
+    h+='<div class="'+cls+'"><span class="dn">'+d+'</span><span class="mk">'+(mk?MK[mk]:"")+'</span>'+((r&&r.note)?'<span class="note-dot"></span>':'')+'</div>';
+  }
+  h+='</div></div>';
+  return h;
+}
+function renderLandscape(){
+  var lv=document.getElementById("landscapeView"); if(!lv) return;
+  if(!store.staff.length){ lv.innerHTML='<div style="padding:24px;text-align:center;color:var(--muted)">スタッフが登録されていません。</div>'; return; }
+  if(!lsStaffId || !staffById(lsStaffId)) lsStaffId=store.staff[0].id;
+  var chips=''; store.staff.forEach(function(s){ chips+='<button class="ls-staffbtn'+(s.id===lsStaffId?' on':'')+'" onclick="setLsStaff(\''+s.id+'\')">'+esc(s.name)+'</button>'; });
+  var sName=(staffById(lsStaffId)||{}).name||"";
+  var cM=0,cS=0,cB=0;
+  monthDates(adminCursor).forEach(function(ds){ var r=(store.avail[ds]||{})[lsStaffId]; if(r){ if(r.mk==="maru")cM++; else if(r.mk==="sankaku")cS++; else if(r.mk==="batsu")cB++; } });
+  lv.innerHTML='<div class="ls-head"><span class="ls-title">🙋 希望シフト早見</span>'+
+    '<div class="ls-mnav"><button onclick="lsMonth(-1)">‹</button><span>'+adminCursor.getFullYear()+'年 '+(adminCursor.getMonth()+1)+'月</span><button onclick="lsMonth(1)">›</button></div></div>'+
+    '<div class="ls-body"><div class="ls-staff">'+chips+'</div>'+
+    '<div class="ls-cal"><div class="ls-calhead"><b>'+esc(sName)+'</b> さんの希望 <span class="ls-cnt"><b class="lg-maru">○</b>'+cM+'　<b class="lg-sankaku">△</b>'+cS+'　<b class="lg-batsu">×</b>'+cB+'</span></div>'+
+    staffAvailGrid(adminCursor, lsStaffId)+'</div></div>';
+}
 function renderAll(){
   renderNotice(); updateDevUI();
   if(document.getElementById("admin").classList.contains("active")){
@@ -1256,6 +1314,7 @@ function renderAll(){
     else if(adminView==="closed") renderClosures();
     else if(adminView==="set") renderStaffManage();
     updateSyncUI();
+    if(typeof updateLandscape==="function") updateLandscape();
   }
   if(document.getElementById("emp").classList.contains("active") && currentEmpId){ if(empViewMode==="sched") renderEmpSched(); else renderEmpCal(); }
 }
@@ -1796,6 +1855,10 @@ document.addEventListener("touchmove",function(e){ if(e.touches && e.touches.len
 /* ===================== 上へ戻るボタン ===================== */
 function goTop(){ if(soundOn&&Snd.tap) Snd.tap(); window.scrollTo({top:0,behavior:"smooth"}); }
 window.addEventListener("scroll", function(){ var b=document.getElementById("toTopBtn"); if(b) b.classList.toggle("show", (window.pageYOffset||document.documentElement.scrollTop||0)>350); }, {passive:true});
+/* 画面の向き変化で 横画面早見ビュー を切り替え */
+(function(){ var mq=window.matchMedia("(orientation: landscape)"); if(mq.addEventListener) mq.addEventListener("change", updateLandscape); else if(mq.addListener) mq.addListener(updateLandscape); })();
+window.addEventListener("resize", function(){ if(typeof updateLandscape==="function") updateLandscape(); }, {passive:true});
+window.addEventListener("orientationchange", function(){ setTimeout(function(){ if(typeof updateLandscape==="function") updateLandscape(); },200); });
 
 refreshSndBtn();
 initCloud();
