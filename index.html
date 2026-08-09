@@ -482,7 +482,7 @@ const LS_KEY = "cafeShift_v1";
 const ROOM_KEY = "cafeShift_room";
 const PREF_KEY = "cafeShift_remember";  // "1"/"0" : ログイン保持の希望
 const SESS_KEY = "cafeShift_session";   // {role, empId} : 自動ログイン用
-const APP_VERSION = "2026.07.04-35";     // ★デプロイのたびに version.json と同じ値へ上げる（開きっぱなし端末の自動更新用）
+const APP_VERSION = "2026.07.04-36";     // ★デプロイのたびに version.json と同じ値へ上げる（開きっぱなし端末の自動更新用）
 let soundOn = localStorage.getItem("cafeShift_sound")!=="0";  // 操作音 ON/OFF（この端末ごと・既定ON）
 /* 管理者ログイン通知（開発者だけ受信）。GASをデプロイしたら /exec URL をここに貼る。空なら何もしない */
 const LOGIN_NOTIFY_URL = "https://script.google.com/macros/s/AKfycbxbhtflLJNoXtsI-xe7Jw5FZfgWrVXiftQ4wIbtwkMCaBPKtH72a180RNSKkFMFKHKD/exec";
@@ -653,9 +653,11 @@ function closeReason(ds){
   if(store.opens && store.opens[ds]) return null;
   if(store.closures && store.closures[ds]) return "店休";
   if(isHoliday(ds)) return "祝";
-  if(isSunday(ds)) return "定休";
+  if(isSunday(ds)) return "定休日";   // 店休と区別しやすいよう「定休日」表記
   return null;
 }
+/* 「日」を付けた表記（既に日で終わる場合は二重にしない）。バナー/モーダル用 */
+function closeLabelFull(ds){ var r=closeReason(ds); if(!r) return r; return /日$/.test(r)?r:r+"日"; }
 function uid(){ return "s"+Date.now().toString(36)+Math.random().toString(36).slice(2,5); }
 function toast(msg){ const t=document.getElementById("toast"); t.textContent=msg; t.classList.add("show"); setTimeout(()=>t.classList.remove("show"),1800); }
 
@@ -921,7 +923,7 @@ function openDayEdit(ds){
     '<h3 style="margin:0;flex:1;text-align:center;font-size:17px">'+label+'</h3>'+
     '<button class="btn btn-ghost btn-sm" style="flex:0 0 auto;padding:7px 12px;white-space:nowrap" onclick="openDayEdit(\''+addDaysDs(ds,1)+'\')">翌日 ›</button>'+
     '</div>';
-  h+='<p class="msub" style="text-align:center">確定 '+picked.length+'名'+(isOpenException(ds)?' ・ 臨時営業':(isClosed(ds)?' ・ '+closeReason(ds)+'日':''))+'</p>';
+  h+='<p class="msub" style="text-align:center">確定 '+picked.length+'名'+(isOpenException(ds)?' ・ 臨時営業':(isClosed(ds)?' ・ '+closeLabelFull(ds):''))+'</p>';
   h+=eventBox(ds,true);
   h+='<div class="shift-sub">🙋 出勤する人をタップ</div><div class="chips">';
   if(cands.length===0 && forced.length===0) h+='<span style="color:var(--muted);font-size:13px">希望者がいません。「＋ 追加出勤」から入れられます。</span>';
@@ -967,7 +969,7 @@ function showSchedDayModal(ds){
   const dt=new Date(ds); const label=(dt.getMonth()+1)+"月"+dt.getDate()+"日 ("+WD[dt.getDay()]+")";
   const arr=store.schedule[ds]||[];
   let h='<h3>'+label+'</h3>';
-  if(isClosed(ds)) h+='<p class="msub">'+closeReason(ds)+'日</p>';
+  if(isClosed(ds)) h+='<p class="msub">'+closeLabelFull(ds)+'</p>';
   h+=eventBox(ds,false);
   if(!arr.length){ h+='<p class="msub" style="margin-top:8px">この日の出勤者はいません。</p><button class="btn btn-primary" style="margin-top:14px" onclick="closeModal()">閉じる</button>'; openModal(h); return; }
   h+='<p class="msub" style="margin-top:8px">出勤者 '+arr.length+'名</p><div class="chips">';
@@ -1008,7 +1010,7 @@ function renderEmpSched(){
   let shown=0;
   dates.forEach(ds=>{
     const dt=new Date(ds);
-    if(isClosed(ds)){ h+='<div class="week-closed" id="eschd_'+ds+'"><span class="wc-date">🌙 '+(dt.getMonth()+1)+'/'+dt.getDate()+' ('+WD[dt.getDay()]+') はお休み</span><span class="wc-label">🚫 '+closeReason(ds)+'日</span></div>'; return; }
+    if(isClosed(ds)){ h+='<div class="week-closed" id="eschd_'+ds+'"><span class="wc-date">🌙 '+(dt.getMonth()+1)+'/'+dt.getDate()+' ('+WD[dt.getDay()]+') はお休み</span><span class="wc-label">🚫 '+closeLabelFull(ds)+'</span></div>'; return; }
     const arr=store.schedule[ds]||[];
     const mine=arr.includes(currentEmpId);
     if(empSchedScope==="mine"){ if(!mine) return; }
@@ -1123,7 +1125,7 @@ function buildEmpGrid(){
     let cls="day"; if(dow===0)cls+=" sun"; if(dow===6)cls+=" sat";
     if(ds===todayStr)cls+=" today";
     if(isClosed(ds)){
-      h+='<div class="'+cls+' closed" onclick="toast(\''+closeReason(ds)+'日です\')">';
+      h+='<div class="'+cls+' closed" onclick="toast(\''+closeLabelFull(ds)+'です\')">';
       h+='<span class="dn">'+d+'</span><span class="clbl">'+closeReason(ds)+'</span></div>';
       continue;
     }
@@ -1321,7 +1323,7 @@ function renderShift(){
     let mh=seg+'<div class="week-label">'+adminCursor.getFullYear()+'年 '+(adminCursor.getMonth()+1)+'月</div>';
     monthDates(adminCursor).forEach(function(ds){
       var dt=new Date(ds);
-      if(isClosed(ds)){ mh+='<div class="week-closed" id="schd_'+ds+'"><span class="wc-date">🌙 '+(dt.getMonth()+1)+'/'+dt.getDate()+' ('+WD[dt.getDay()]+') はお休み</span><span class="wc-label">🚫 '+closeReason(ds)+'日</span></div>'; return; }
+      if(isClosed(ds)){ mh+='<div class="week-closed" id="schd_'+ds+'"><span class="wc-date">🌙 '+(dt.getMonth()+1)+'/'+dt.getDate()+' ('+WD[dt.getDay()]+') はお休み</span><span class="wc-label">🚫 '+closeLabelFull(ds)+'</span></div>'; return; }
       mh+=shiftDayCard(ds);
     });
     el.innerHTML=mh; attachSwipe();
@@ -1337,7 +1339,7 @@ function renderShift(){
   dates.forEach(ds=>{
     const dt=new Date(ds);
     if(isClosed(ds)){
-      h+='<div class="week-closed" id="schd_'+ds+'"><span class="wc-date">🌙 '+(dt.getMonth()+1)+'/'+dt.getDate()+' ('+WD[dt.getDay()]+') はお休み</span><span class="wc-label">🚫 '+closeReason(ds)+'日</span></div>';
+      h+='<div class="week-closed" id="schd_'+ds+'"><span class="wc-date">🌙 '+(dt.getMonth()+1)+'/'+dt.getDate()+' ('+WD[dt.getDay()]+') はお休み</span><span class="wc-label">🚫 '+closeLabelFull(ds)+'</span></div>';
       return;
     }
     h+=shiftDayCard(ds);
