@@ -456,7 +456,7 @@ input.pin::placeholder{letter-spacing:10px}
   <div class="modal" id="modalBox"></div>
 </div>
 <div class="toast" id="toast"></div>
-<button class="to-top" id="toTopBtn" onclick="scrollTop()" aria-label="上へ戻る">↑</button>
+<button class="to-top" id="toTopBtn" onclick="goTop()" aria-label="上へ戻る">↑</button>
 
 <!-- Firebase (optional). 設定すると全端末で共有されます。未設定なら自動でこの端末だけのローカル保存になります。 -->
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
@@ -482,7 +482,7 @@ const LS_KEY = "cafeShift_v1";
 const ROOM_KEY = "cafeShift_room";
 const PREF_KEY = "cafeShift_remember";  // "1"/"0" : ログイン保持の希望
 const SESS_KEY = "cafeShift_session";   // {role, empId} : 自動ログイン用
-const APP_VERSION = "2026.07.04-32";     // ★デプロイのたびに version.json と同じ値へ上げる（開きっぱなし端末の自動更新用）
+const APP_VERSION = "2026.07.04-33";     // ★デプロイのたびに version.json と同じ値へ上げる（開きっぱなし端末の自動更新用）
 let soundOn = localStorage.getItem("cafeShift_sound")!=="0";  // 操作音 ON/OFF（この端末ごと・既定ON）
 /* 管理者ログイン通知（開発者だけ受信）。GASをデプロイしたら /exec URL をここに貼る。空なら何もしない */
 const LOGIN_NOTIFY_URL = "https://script.google.com/macros/s/AKfycbxbhtflLJNoXtsI-xe7Jw5FZfgWrVXiftQ4wIbtwkMCaBPKtH72a180RNSKkFMFKHKD/exec";
@@ -1743,7 +1743,7 @@ document.addEventListener("touchmove",function(e){ if(e.touches && e.touches.len
 },{passive:false}); })();
 
 /* ===================== 上へ戻るボタン ===================== */
-function scrollTop(){ if(soundOn&&Snd.tap) Snd.tap(); window.scrollTo({top:0,behavior:"smooth"}); }
+function goTop(){ if(soundOn&&Snd.tap) Snd.tap(); window.scrollTo({top:0,behavior:"smooth"}); }
 window.addEventListener("scroll", function(){ var b=document.getElementById("toTopBtn"); if(b) b.classList.toggle("show", (window.pageYOffset||document.documentElement.scrollTop||0)>350); }, {passive:true});
 
 refreshSndBtn();
