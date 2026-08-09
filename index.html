@@ -301,6 +301,7 @@ input.pin::placeholder{letter-spacing:10px}
 .ls-calhead{font-size:14px;color:var(--espresso);margin-bottom:6px}
 .ls-cnt{color:var(--muted);font-size:12.5px;margin-left:8px;white-space:nowrap}
 .ls-cal .cal .day{aspect-ratio:auto;min-height:40px}
+.ls-notemark{position:absolute;top:1px;right:2px;font-size:11px;line-height:1;pointer-events:none}
 @media (orientation:portrait){#landscapeView{display:none !important}}
 </style>
 </head>
@@ -502,7 +503,7 @@ const LS_KEY = "cafeShift_v1";
 const ROOM_KEY = "cafeShift_room";
 const PREF_KEY = "cafeShift_remember";  // "1"/"0" : ログイン保持の希望
 const SESS_KEY = "cafeShift_session";   // {role, empId} : 自動ログイン用
-const APP_VERSION = "2026.07.04-43";     // ★デプロイのたびに version.json と同じ値へ上げる（開きっぱなし端末の自動更新用）
+const APP_VERSION = "2026.07.04-44";     // ★デプロイのたびに version.json と同じ値へ上げる（開きっぱなし端末の自動更新用）
 let soundOn = localStorage.getItem("cafeShift_sound")!=="0";  // 操作音 ON/OFF（この端末ごと・既定ON）
 /* 管理者ログイン通知（開発者だけ受信）。GASをデプロイしたら /exec URL をここに貼る。空なら何もしない */
 const LOGIN_NOTIFY_URL = "https://script.google.com/macros/s/AKfycbxbhtflLJNoXtsI-xe7Jw5FZfgWrVXiftQ4wIbtwkMCaBPKtH72a180RNSKkFMFKHKD/exec";
@@ -1290,7 +1291,7 @@ function staffAvailGrid(cursor, staffId){
     var r=(store.avail[ds]||{})[staffId]; var mk=r?r.mk:null;
     if(mk)cls+=" "+mk;
     var clickable=(r&&r.note)?' onclick="lsShowNote(\''+ds+'\')" style="cursor:pointer"':'';
-    h+='<div class="'+cls+'"'+clickable+'><span class="dn">'+d+'</span><span class="mk">'+(mk?MK[mk]:"")+'</span>'+((r&&r.note)?'<span class="note-dot"></span>':'')+'</div>';
+    h+='<div class="'+cls+'"'+clickable+'><span class="dn">'+d+'</span><span class="mk">'+(mk?MK[mk]:"")+'</span>'+((r&&r.note)?'<span class="ls-notemark">📝</span>':'')+'</div>';
   }
   h+='</div></div>';
   return h;
