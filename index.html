@@ -483,7 +483,7 @@ const LS_KEY = "cafeShift_v1";
 const ROOM_KEY = "cafeShift_room";
 const PREF_KEY = "cafeShift_remember";  // "1"/"0" : ログイン保持の希望
 const SESS_KEY = "cafeShift_session";   // {role, empId} : 自動ログイン用
-const APP_VERSION = "2026.07.04-38";     // ★デプロイのたびに version.json と同じ値へ上げる（開きっぱなし端末の自動更新用）
+const APP_VERSION = "2026.07.04-39";     // ★デプロイのたびに version.json と同じ値へ上げる（開きっぱなし端末の自動更新用）
 let soundOn = localStorage.getItem("cafeShift_sound")!=="0";  // 操作音 ON/OFF（この端末ごと・既定ON）
 /* 管理者ログイン通知（開発者だけ受信）。GASをデプロイしたら /exec URL をここに貼る。空なら何もしない */
 const LOGIN_NOTIFY_URL = "https://script.google.com/macros/s/AKfycbxbhtflLJNoXtsI-xe7Jw5FZfgWrVXiftQ4wIbtwkMCaBPKtH72a180RNSKkFMFKHKD/exec";
@@ -1153,7 +1153,12 @@ function buildEmpGrid(){
 function openMarkModal(ds){
   const rec=(store.avail[ds]||{})[currentEmpId]||{mk:null,note:""};
   const dt=new Date(ds); const label=(dt.getMonth()+1)+"月"+dt.getDate()+"日 ("+WD[dt.getDay()]+")";
-  const h='<h3>'+label+'</h3><p class="msub">出勤の希望を選んでください</p>'+
+  const h='<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">'+
+      '<button class="btn btn-ghost btn-sm" style="flex:0 0 auto;padding:7px 12px;white-space:nowrap" onclick="markNav(\''+ds+'\',-1)">‹ 前日</button>'+
+      '<h3 style="margin:0;flex:1;text-align:center;font-size:17px">'+label+'</h3>'+
+      '<button class="btn btn-ghost btn-sm" style="flex:0 0 auto;padding:7px 12px;white-space:nowrap" onclick="markNav(\''+ds+'\',1)">翌日 ›</button>'+
+    '</div>'+
+    '<p class="msub" style="text-align:center">出勤の希望を選んでください（前日/翌日で移動しても入力は自動保存されます）</p>'+
     eventBox(ds,false)+
     '<div class="mk-choice"'+((store.events||{})[ds]?' style="margin-top:14px"':'')+'>'+
       '<button class="m'+(rec.mk==="maru"?" on":"")+'" onclick="pickMk(this,\'maru\')"><span class="bigmk">○</span><span class="lbl">希望</span></button>'+
@@ -1168,6 +1173,27 @@ function openMarkModal(ds){
     '</div>';
   openModal(h);
   modalBox._mk = rec.mk;
+}
+/* 希望入力モーダルで前日/翌日へ。移動前に現在の入力を自動保存 */
+function markNav(ds,n){
+  var mk=modalBox._mk;
+  var noteEl=document.getElementById("mNote");
+  var note=noteEl?noteEl.value.trim():"";
+  var prev=((store.avail[ds]||{})[currentEmpId]||{});
+  var prevMk=prev.mk||null, prevNote=prev.note||"";
+  if((mk!==prevMk)||(note!==prevNote)){
+    if(!mk && !note){
+      if(store.avail[ds]&&store.avail[ds][currentEmpId]){ delete store.avail[ds][currentEmpId]; if(Object.keys(store.avail[ds]).length===0) delete store.avail[ds]; persist(); }
+    } else {
+      var newMk=mk||"maru";
+      if(!store.avail[ds]) store.avail[ds]={};
+      store.avail[ds][currentEmpId]={mk:newMk, note:note};
+      persist();
+      var _nm=empChangeName();
+      if(NOTIFY_STAFF.indexOf(_nm)>=0){ var _d=new Date(ds), _dl=(_d.getMonth()+1)+"/"+_d.getDate()+"("+WD[_d.getDay()]+")"; if(newMk!==prevMk) notifyEmpChange(_nm,_dl+" "+MK[newMk]+" に変更"); if(note!==prevNote) notifyEmpChange(_nm,_dl+" 備考: "+(note||"(消去)")); }
+    }
+  }
+  openMarkModal(addDaysDs(ds,n));
 }
 function pickMk(btn,mk){
   document.querySelectorAll(".mk-choice button").forEach(b=>b.classList.remove("on"));
