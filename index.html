@@ -500,7 +500,7 @@ const LS_KEY = "cafeShift_v1";
 const ROOM_KEY = "cafeShift_room";
 const PREF_KEY = "cafeShift_remember";  // "1"/"0" : ログイン保持の希望
 const SESS_KEY = "cafeShift_session";   // {role, empId} : 自動ログイン用
-const APP_VERSION = "2026.07.04-41";     // ★デプロイのたびに version.json と同じ値へ上げる（開きっぱなし端末の自動更新用）
+const APP_VERSION = "2026.07.04-42";     // ★デプロイのたびに version.json と同じ値へ上げる（開きっぱなし端末の自動更新用）
 let soundOn = localStorage.getItem("cafeShift_sound")!=="0";  // 操作音 ON/OFF（この端末ごと・既定ON）
 /* 管理者ログイン通知（開発者だけ受信）。GASをデプロイしたら /exec URL をここに貼る。空なら何もしない */
 const LOGIN_NOTIFY_URL = "https://script.google.com/macros/s/AKfycbxbhtflLJNoXtsI-xe7Jw5FZfgWrVXiftQ4wIbtwkMCaBPKtH72a180RNSKkFMFKHKD/exec";
@@ -953,7 +953,7 @@ function openDayEdit(ds){
   var noteRows=Object.keys(rec).filter(function(sid){return rec[sid].note && staffById(sid);}).sort(function(x,y){return order[rec[x].mk]-order[rec[y].mk];});
   if(noteRows.length){
     h+='<div class="shift-sub" style="margin-top:12px">📝 希望者の備考</div><div class="staff-mini">';
-    noteRows.forEach(function(sid){ var r=rec[sid]; h+='<div class="smrow"><b>'+MK[r.mk]+' '+esc(staffById(sid).name)+'</b><span class="nt">'+esc(r.note)+'</span></div>'; });
+    noteRows.forEach(function(sid){ var r=rec[sid]; h+='<div class="smrow"><b>'+esc(staffById(sid).name)+'</b><span class="nt">'+esc(r.note)+'</span></div>'; });
     h+='</div>';
   }
   h+='<button class="btn btn-ghost btn-sm" style="margin-top:10px" onclick="forceAddModal(\''+ds+'\')">＋ 追加出勤（×・未入力も）</button>';
@@ -1469,7 +1469,7 @@ function shiftDayCard(ds){
   var noteRows=Object.keys(rec).filter(function(sid){return rec[sid].note && staffById(sid) && picked.indexOf(sid)<0;}).sort(function(x,y){return order[rec[x].mk]-order[rec[y].mk];});
   if(noteRows.length){
     h+='<div class="shift-sub" style="margin-top:12px">📝 希望者の備考</div><div class="staff-mini">';
-    noteRows.forEach(function(sid){ var r=rec[sid]; h+='<div class="smrow"><b>'+MK[r.mk]+' '+esc(staffById(sid).name)+'</b><span class="nt">'+esc(r.note)+'</span></div>'; });
+    noteRows.forEach(function(sid){ var r=rec[sid]; h+='<div class="smrow"><b>'+esc(staffById(sid).name)+'</b><span class="nt">'+esc(r.note)+'</span></div>'; });
     h+='</div>';
   }
   if(picked.length){
