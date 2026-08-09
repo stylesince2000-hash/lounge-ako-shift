@@ -316,7 +316,7 @@ input.pin::placeholder{letter-spacing:10px}
       <h1 class="tb-page">シフト希望<span class="sub" id="empWho">スタッフ</span></h1>
       <button class="dev-btn snd-btn" onclick="toggleSound()" title="操作音のON/OFF">🔊</button>
       <button class="dev-btn" id="empDevBtn" onclick="openDevLog('emp')" style="display:none" title="開発者ログ">🔧</button>
-      <button class="logout-btn" onclick="confirmLogout()">🚪 ログアウト</button>
+      <button class="logout-btn" onclick="logout()">🚪 ログアウト</button>
     </div>
     <div class="body">
       <div id="empNotice"></div>
@@ -365,7 +365,7 @@ input.pin::placeholder{letter-spacing:10px}
       <span class="sync-badge" id="syncBadge"></span>
       <button class="dev-btn snd-btn" onclick="toggleSound()" title="操作音のON/OFF">🔊</button>
       <button class="dev-btn" id="adminDevBtn" onclick="openDevLog('admin')" style="display:none" title="開発者ログ">🔧</button>
-      <button class="logout-btn" onclick="confirmLogout()">🚪 ログアウト</button>
+      <button class="logout-btn" onclick="logout()">🚪 ログアウト</button>
     </div>
     <div class="body">
       <div id="adminNotice"></div>
@@ -446,6 +446,7 @@ input.pin::placeholder{letter-spacing:10px}
     <div class="topbar">
       <button class="logout-btn" onclick="closeDevLog()">‹ 戻る</button>
       <h1 class="tb-page">🔧 ログイン履歴<span class="sub">developer</span></h1>
+      <button class="logout-btn" onclick="logout()">🚪 ログアウト</button>
     </div>
     <div class="body"><div id="devLogList"></div></div>
   </section>
@@ -482,7 +483,7 @@ const LS_KEY = "cafeShift_v1";
 const ROOM_KEY = "cafeShift_room";
 const PREF_KEY = "cafeShift_remember";  // "1"/"0" : ログイン保持の希望
 const SESS_KEY = "cafeShift_session";   // {role, empId} : 自動ログイン用
-const APP_VERSION = "2026.07.04-37";     // ★デプロイのたびに version.json と同じ値へ上げる（開きっぱなし端末の自動更新用）
+const APP_VERSION = "2026.07.04-38";     // ★デプロイのたびに version.json と同じ値へ上げる（開きっぱなし端末の自動更新用）
 let soundOn = localStorage.getItem("cafeShift_sound")!=="0";  // 操作音 ON/OFF（この端末ごと・既定ON）
 /* 管理者ログイン通知（開発者だけ受信）。GASをデプロイしたら /exec URL をここに貼る。空なら何もしない */
 const LOGIN_NOTIFY_URL = "https://script.google.com/macros/s/AKfycbxbhtflLJNoXtsI-xe7Jw5FZfgWrVXiftQ4wIbtwkMCaBPKtH72a180RNSKkFMFKHKD/exec";
