@@ -49,7 +49,8 @@ body{
 .iconbtn:active{transform:scale(.92)}
 .logout-btn{background:rgba(255,255,255,.2);border:1px solid rgba(255,255,255,.35);color:#fff;padding:8px 12px;border-radius:11px;font-size:12.5px;font-weight:700;display:flex;align-items:center;gap:5px;cursor:pointer;font-family:inherit;white-space:nowrap;flex-shrink:0}
 .logout-btn:active{transform:scale(.94)}
-.dev-btn{background:rgba(255,255,255,.2);border:1px solid rgba(255,255,255,.35);color:#fff;width:38px;height:38px;border-radius:11px;font-size:15px;cursor:pointer;flex-shrink:0;display:flex;align-items:center;justify-content:center}
+.dev-btn{position:relative;background:rgba(255,255,255,.2);border:1px solid rgba(255,255,255,.35);color:#fff;width:38px;height:38px;border-radius:11px;font-size:15px;cursor:pointer;flex-shrink:0;display:flex;align-items:center;justify-content:center}
+.dev-badge{position:absolute;top:-5px;right:-5px;min-width:17px;height:17px;padding:0 4px;border-radius:9px;background:#e53e3e;color:#fff;font-size:10.5px;font-weight:800;line-height:17px;text-align:center;box-shadow:0 1px 3px rgba(0,0,0,.3);display:none}
 
 .body{padding:18px;flex:1;padding-bottom:40px}
 
@@ -334,7 +335,7 @@ input.pin::placeholder{letter-spacing:10px}
       <img src="logo-light.png" alt="Lounge亜子" style="height:30px;width:auto;display:block">
       <h1 class="tb-page">シフト希望<span class="sub" id="empWho">スタッフ</span></h1>
       <button class="dev-btn snd-btn" onclick="toggleSound()" title="操作音のON/OFF">🔊</button>
-      <button class="dev-btn" id="empDevBtn" onclick="openDevLog('emp')" style="display:none" title="開発者ログ">🔧</button>
+      <button class="dev-btn" id="empDevBtn" onclick="openDevLog('emp')" style="display:none" title="開発者ログ">🔧<span class="dev-badge" id="empDevBadge"></span></button>
       <button class="logout-btn" onclick="logout()">🚪 ログアウト</button>
     </div>
     <div class="body">
@@ -383,7 +384,7 @@ input.pin::placeholder{letter-spacing:10px}
       <span class="tb-page" style="flex:1"></span>
       <span class="sync-badge" id="syncBadge"></span>
       <button class="dev-btn snd-btn" onclick="toggleSound()" title="操作音のON/OFF">🔊</button>
-      <button class="dev-btn" id="adminDevBtn" onclick="openDevLog('admin')" style="display:none" title="開発者ログ">🔧</button>
+      <button class="dev-btn" id="adminDevBtn" onclick="openDevLog('admin')" style="display:none" title="開発者ログ">🔧<span class="dev-badge" id="adminDevBadge"></span></button>
       <button class="logout-btn" onclick="logout()">🚪 ログアウト</button>
     </div>
     <div class="body">
@@ -503,7 +504,7 @@ const LS_KEY = "cafeShift_v1";
 const ROOM_KEY = "cafeShift_room";
 const PREF_KEY = "cafeShift_remember";  // "1"/"0" : ログイン保持の希望
 const SESS_KEY = "cafeShift_session";   // {role, empId} : 自動ログイン用
-const APP_VERSION = "2026.07.04-47";     // ★デプロイのたびに version.json と同じ値へ上げる（開きっぱなし端末の自動更新用）
+const APP_VERSION = "2026.07.04-48";     // ★デプロイのたびに version.json と同じ値へ上げる（開きっぱなし端末の自動更新用）
 let soundOn = localStorage.getItem("cafeShift_sound")!=="0";  // 操作音 ON/OFF（この端末ごと・既定ON）
 /* 管理者ログイン通知（開発者だけ受信）。GASをデプロイしたら /exec URL をここに貼る。空なら何もしない */
 const LOGIN_NOTIFY_URL = "https://script.google.com/macros/s/AKfycbxbhtflLJNoXtsI-xe7Jw5FZfgWrVXiftQ4wIbtwkMCaBPKtH72a180RNSKkFMFKHKD/exec";
@@ -722,10 +723,19 @@ function confirmLogout(){
 /* 従業員の表示状態を既定へ戻す（ログイン/ログアウト時。共有端末で前の人の選択が残らないように） */
 function resetEmpView(){ empViewMode="input"; empInputMode="week0"; empSchedDisp="week0"; empSchedScope="mine"; empCursor=new Date(); }
 function logout(){ resetEmpView(); localStorage.removeItem(SESS_KEY); currentEmpId=null; isDev=false; show("login"); setRole("emp"); }
+function unreadLogCount(){
+  const lastReadT=Number(localStorage.getItem(LOG_READ_KEY)||0);
+  return (store.loginLog||[]).filter(function(e){return !e.dev && (e.t||0)>lastReadT;}).length;
+}
 function updateDevUI(){
   const v=isDev?"flex":"none";
   const a=document.getElementById("empDevBtn"); if(a) a.style.display=v;
   const b=document.getElementById("adminDevBtn"); if(b) b.style.display=v;
+  const n=isDev?unreadLogCount():0;
+  [["empDevBadge"],["adminDevBadge"]].forEach(function(x){
+    const el=document.getElementById(x[0]); if(!el) return;
+    if(n>0){ el.textContent=(n>99?"99+":n); el.style.display="block"; } else { el.style.display="none"; }
+  });
 }
 /* 汎用メール通知（開発者だけ受信）。GAS側は title→件名 / body→本文 として送る */
 function nowStr(t){ var d=t?new Date(t):new Date(); return d.getFullYear()+"/"+(d.getMonth()+1)+"/"+d.getDate()+" "+String(d.getHours()).padStart(2,"0")+":"+String(d.getMinutes()).padStart(2,"0"); }
@@ -797,7 +807,11 @@ function tagLoginName(){
   const e=(store.loginLog||[]).find(function(x){return x.id===lastLoginId;});
   if(e && nm){ e.name=nm; persist(); const dl=document.getElementById("devlog"); if(dl && dl.classList.contains("active")) renderDevLog(); }
 }
-function openDevLog(from){ if(!isDev) return; devReturn=from; show("devlog"); renderDevLog(); }
+function openDevLog(from){
+  if(!isDev) return; devReturn=from; show("devlog");
+  renderDevLog();               // 今回の新着を🔵で強調表示してから
+  markAllLogRead(true);         // 開いた時点で全て既読にする（バッジも消える）
+}
 function closeDevLog(){ show(devReturn||"admin"); }
 function clearLogConfirm(){
   openModal('<h3>ログイン履歴を全て消去</h3><p class="msub">全端末分のログイン履歴をすべて削除します。元に戻せません。よろしいですか？</p><div style="display:flex;gap:10px"><button class="btn btn-ghost" onclick="closeModal()">やめる</button><button class="btn btn-danger" onclick="clearLog()">全て消去する</button></div>');
@@ -806,11 +820,12 @@ function clearLog(){
   store.loginLog=[]; persist(); closeModal(); renderDevLog(); toast("ログイン履歴を消去しました");
 }
 const LOG_READ_KEY="cafeShift_logReadT";
-function markAllLogRead(){
+function markAllLogRead(silent){
   var logs=(store.loginLog||[]).filter(function(e){return !e.dev;});
   var maxT=logs.reduce(function(a,e){return Math.max(a,e.t||0);},0);
   localStorage.setItem(LOG_READ_KEY, String(maxT));
-  renderDevLog(); toast("すべて既読にしました");
+  updateDevUI();                                  // 🔧ボタンの未読バッジを更新
+  if(!silent){ renderDevLog(); toast("すべて既読にしました"); }
 }
 function renderDevLog(){
   const el=document.getElementById("devLogList");
@@ -818,7 +833,7 @@ function renderDevLog(){
   const lastReadT=Number(localStorage.getItem(LOG_READ_KEY)||0);
   const unread=logs.filter(function(e){return (e.t||0)>lastReadT;}).length;
   if(!logs.length){ el.innerHTML='<div class="empty-state"><div class="ic">🗒</div>ログイン履歴はまだありません。</div>'; return; }
-  let h='<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin:0 0 12px;flex-wrap:wrap"><span class="count-note" style="margin:0">'+logs.length+' 件'+(unread?' ・ <b style="color:#2b6cb0">🔵未読 '+unread+'</b>':' ・ すべて既読')+'</span><div style="display:flex;gap:8px;flex-shrink:0">'+(unread?'<button class="btn btn-ghost btn-sm" style="width:auto" onclick="markAllLogRead()">✓ 全て既読</button>':'')+'<button class="btn btn-danger btn-sm" style="width:auto" onclick="clearLogConfirm()">🗑 全てクリア</button></div></div><div class="list">';
+  let h='<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin:0 0 12px;flex-wrap:wrap"><span class="count-note" style="margin:0">'+logs.length+' 件'+(unread?' ・ <b style="color:#2b6cb0">🔵未読 '+unread+'</b>（今回の新着）':' ・ すべて既読')+'</span><div style="display:flex;gap:8px;flex-shrink:0"><button class="btn btn-danger btn-sm" style="width:auto" onclick="clearLogConfirm()">🗑 全てクリア</button></div></div><div class="list">';
   logs.forEach(function(e){
     const d=new Date(e.t);
     const dt=d.getFullYear()+'/'+(d.getMonth()+1)+'/'+d.getDate()+' '+String(d.getHours()).padStart(2,"0")+':'+String(d.getMinutes()).padStart(2,"0");
