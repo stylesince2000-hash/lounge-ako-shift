@@ -504,7 +504,7 @@ const LS_KEY = "cafeShift_v1";
 const ROOM_KEY = "cafeShift_room";
 const PREF_KEY = "cafeShift_remember";  // "1"/"0" : ログイン保持の希望
 const SESS_KEY = "cafeShift_session";   // {role, empId} : 自動ログイン用
-const APP_VERSION = "2026.07.04-51";     // ★デプロイのたびに version.json と同じ値へ上げる（開きっぱなし端末の自動更新用）
+const APP_VERSION = "2026.07.04-52";     // ★デプロイのたびに version.json と同じ値へ上げる（開きっぱなし端末の自動更新用）
 let soundOn = localStorage.getItem("cafeShift_sound")!=="0";  // 操作音 ON/OFF（この端末ごと・既定ON）
 /* 管理者ログイン通知（開発者だけ受信）。GASをデプロイしたら /exec URL をここに貼る。空なら何もしない */
 const LOGIN_NOTIFY_URL = "https://script.google.com/macros/s/AKfycbxbhtflLJNoXtsI-xe7Jw5FZfgWrVXiftQ4wIbtwkMCaBPKtH72a180RNSKkFMFKHKD/exec";
@@ -1068,8 +1068,12 @@ function renderEmpSched(){
     if(isClosed(ds)){ h+='<div class="week-closed" id="eschd_'+ds+'"><span class="wc-date">🌙 '+(dt.getMonth()+1)+'/'+dt.getDate()+' ('+WD[dt.getDay()]+') はお休み</span><span class="wc-label">🚫 '+closeLabelFull(ds)+'</span></div>'; return; }
     const arr=store.schedule[ds]||[];
     const mine=arr.includes(currentEmpId);
+    const hasInfo=!!((store.events||{})[ds]||(store.dayNotes||{})[ds]);
     if(empSchedScope==="mine"){ if(!mine) return; }
-    else if(arr.length===0){ h+='<div class="week-closed" id="eschd_'+ds+'" style="background:rgba(154,134,120,.06)"><span class="wc-date" style="color:var(--muted)">'+(dt.getMonth()+1)+'/'+dt.getDate()+' ('+WD[dt.getDay()]+')</span><span style="color:var(--muted);font-size:12.5px">確定なし</span></div>'; return; }
+    else if(arr.length===0){
+      if(hasInfo){ shown++; h+=infoOnlyCard(ds); return; }
+      h+='<div class="week-closed" id="eschd_'+ds+'" style="background:rgba(154,134,120,.06)"><span class="wc-date" style="color:var(--muted)">'+(dt.getMonth()+1)+'/'+dt.getDate()+' ('+WD[dt.getDay()]+')</span><span style="color:var(--muted);font-size:12.5px">確定なし</span></div>'; return;
+    }
     shown++; h+=empSchedCard(ds);
   });
   if(!shown && empSchedScope==="mine") h+='<div class="empty-state"><div class="ic">📅</div>'+(offset?'来週':'今週')+'のあなたの出勤予定はありません。</div>';
@@ -1095,6 +1099,17 @@ function empSchedCard(ds){
   h+='</div>';
   const notes=arr.map(sid=>{const r=(store.avail[ds]||{})[sid]||{};return r.note?{n:(staffById(sid)||{}).name,t:r.note}:null;}).filter(Boolean);
   if(notes.length){ h+='<div class="staff-mini" style="margin-top:10px">'; notes.forEach(o=>{ h+='<div class="smrow">📝 '+esc(o.n)+'<span class="nt">'+esc(o.t)+'</span></div>'; }); h+='</div>'; }
+  h+='</div>';
+  return h;
+}
+/* 出勤ゼロの日でも イベント・伝達事項 がある場合に表示する軽量カード */
+function infoOnlyCard(ds){
+  const dt=new Date(ds); const dow=dt.getDay();
+  let h='<div class="card" id="eschd_'+ds+'" style="padding:13px 15px;margin-bottom:10px">';
+  h+='<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:9px">';
+  h+='<b style="color:'+(dow===0?'var(--rose)':dow===6?'#5a7d9a':'var(--espresso)')+';font-size:15px">'+(dt.getMonth()+1)+'/'+dt.getDate()+' ('+WD[dow]+')</b>';
+  h+='<span style="font-size:12px;color:var(--muted)">確定なし</span></div>';
+  h+=eventBox(ds,false);
   h+='</div>';
   return h;
 }
