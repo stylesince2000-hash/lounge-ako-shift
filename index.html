@@ -504,7 +504,7 @@ const LS_KEY = "cafeShift_v1";
 const ROOM_KEY = "cafeShift_room";
 const PREF_KEY = "cafeShift_remember";  // "1"/"0" : ログイン保持の希望
 const SESS_KEY = "cafeShift_session";   // {role, empId} : 自動ログイン用
-const APP_VERSION = "2026.07.04-49";     // ★デプロイのたびに version.json と同じ値へ上げる（開きっぱなし端末の自動更新用）
+const APP_VERSION = "2026.07.04-50";     // ★デプロイのたびに version.json と同じ値へ上げる（開きっぱなし端末の自動更新用）
 let soundOn = localStorage.getItem("cafeShift_sound")!=="0";  // 操作音 ON/OFF（この端末ごと・既定ON）
 /* 管理者ログイン通知（開発者だけ受信）。GASをデプロイしたら /exec URL をここに貼る。空なら何もしない */
 const LOGIN_NOTIFY_URL = "https://script.google.com/macros/s/AKfycbxbhtflLJNoXtsI-xe7Jw5FZfgWrVXiftQ4wIbtwkMCaBPKtH72a180RNSKkFMFKHKD/exec";
@@ -1026,10 +1026,10 @@ function showSchedDayModal(ds){
   h+=eventBox(ds,false);
   if(!arr.length){ h+='<p class="msub" style="margin-top:8px">この日の出勤者はいません。</p><button class="btn btn-primary" style="margin-top:14px" onclick="closeModal()">閉じる</button>'; openModal(h); return; }
   h+='<p class="msub" style="margin-top:8px">出勤者 '+arr.length+'名</p><div class="chips">';
-  arr.forEach(sid=>{ const s=staffById(sid); if(!s)return; const r=(store.avail[ds]||{})[sid]||{}; const me=(currentEmpId&&sid===currentEmpId); h+='<span class="chip'+(me?' sel':'')+'" style="cursor:default"><span class="av-s">'+esc(initials(s.name))+'</span>'+esc(s.name)+((!r.mk||r.mk==="batsu")?' <span class="tag">追加</span>':'')+(me&&r.note?' <span class="tag">📝</span>':'')+'</span>'; });
+  arr.forEach(sid=>{ const s=staffById(sid); if(!s)return; const r=(store.avail[ds]||{})[sid]||{}; const me=(currentEmpId&&sid===currentEmpId); h+='<span class="chip'+(me?' sel':'')+'" style="cursor:default"><span class="av-s">'+esc(initials(s.name))+'</span>'+esc(s.name)+((!r.mk||r.mk==="batsu")?' <span class="tag">追加</span>':'')+(r.note?' <span class="tag">📝</span>':'')+'</span>'; });
   h+='</div>';
-  const myR=(currentEmpId?(store.avail[ds]||{})[currentEmpId]:null)||{};
-  if(myR.note){ h+='<div class="staff-mini" style="margin-top:10px"><div class="smrow">📝 <span class="nt">'+esc(myR.note)+'</span></div></div>'; }
+  const notes=arr.map(sid=>{const r=(store.avail[ds]||{})[sid]||{};return r.note?{n:(staffById(sid)||{}).name,t:r.note}:null;}).filter(Boolean);
+  if(notes.length){ h+='<div class="staff-mini" style="margin-top:10px">'; notes.forEach(o=>{ h+='<div class="smrow">📝 '+esc(o.n)+'<span class="nt">'+esc(o.t)+'</span></div>'; }); h+='</div>'; }
   h+='<button class="btn btn-primary" style="margin-top:16px" onclick="closeModal()">閉じる</button>';
   openModal(h);
 }
@@ -1088,11 +1088,11 @@ function empSchedCard(ds){
     const s=staffById(sid); if(!s) return;
     const r=(store.avail[ds]||{})[sid]||{};
     const me = sid===currentEmpId;
-    h+='<span class="chip'+(me?' sel':'')+'" style="cursor:default"'+(me&&r.note?' title="'+esc(r.note)+'"':'')+'><span class="av-s">'+esc(initials(s.name))+'</span>'+esc(s.name)+((!r.mk||r.mk==="batsu")?' <span class="tag">追加</span>':'')+(me&&r.note?' <span class="tag">📝</span>':'')+'</span>';
+    h+='<span class="chip'+(me?' sel':'')+'" style="cursor:default" title="'+esc(r.note||'')+'"><span class="av-s">'+esc(initials(s.name))+'</span>'+esc(s.name)+((!r.mk||r.mk==="batsu")?' <span class="tag">追加</span>':'')+(r.note?' <span class="tag">📝</span>':'')+'</span>';
   });
   h+='</div>';
-  const myR=(store.avail[ds]||{})[currentEmpId]||{};
-  if(myR.note){ h+='<div class="staff-mini" style="margin-top:10px"><div class="smrow">📝 <span class="nt">'+esc(myR.note)+'</span></div></div>'; }
+  const notes=arr.map(sid=>{const r=(store.avail[ds]||{})[sid]||{};return r.note?{n:(staffById(sid)||{}).name,t:r.note}:null;}).filter(Boolean);
+  if(notes.length){ h+='<div class="staff-mini" style="margin-top:10px">'; notes.forEach(o=>{ h+='<div class="smrow">📝 '+esc(o.n)+'<span class="nt">'+esc(o.t)+'</span></div>'; }); h+='</div>'; }
   h+='</div>';
   return h;
 }
