@@ -504,7 +504,7 @@ const LS_KEY = "cafeShift_v1";
 const ROOM_KEY = "cafeShift_room";
 const PREF_KEY = "cafeShift_remember";  // "1"/"0" : ログイン保持の希望
 const SESS_KEY = "cafeShift_session";   // {role, empId} : 自動ログイン用
-const APP_VERSION = "2026.07.04-50";     // ★デプロイのたびに version.json と同じ値へ上げる（開きっぱなし端末の自動更新用）
+const APP_VERSION = "2026.07.04-51";     // ★デプロイのたびに version.json と同じ値へ上げる（開きっぱなし端末の自動更新用）
 let soundOn = localStorage.getItem("cafeShift_sound")!=="0";  // 操作音 ON/OFF（この端末ごと・既定ON）
 /* 管理者ログイン通知（開発者だけ受信）。GASをデプロイしたら /exec URL をここに貼る。空なら何もしない */
 const LOGIN_NOTIFY_URL = "https://script.google.com/macros/s/AKfycbxbhtflLJNoXtsI-xe7Jw5FZfgWrVXiftQ4wIbtwkMCaBPKtH72a180RNSKkFMFKHKD/exec";
@@ -1009,7 +1009,9 @@ function scheduleCalGrid(cursor, highlightId, editable){
     const arr=store.schedule[ds]||[];
     const mine=!!(highlightId && arr.includes(highlightId));
     if(arr.length) cls+=mine?" sched-mine":" has-sched";
-    h+='<div class="'+cls+'" onclick="'+(editable?'openDayEdit':'showSchedDayModal')+'(\''+ds+'\')"><span class="dn">'+d+'</span>'+(arr.length?'<span class="sched-cnt">'+arr.length+'名</span>':'')+'</div>';
+    const hasEv=!!((store.events||{})[ds]||(store.dayNotes||{})[ds]);
+    const hasNote=arr.some(function(sid){return !!((store.avail[ds]||{})[sid]||{}).note;});
+    h+='<div class="'+cls+'" onclick="'+(editable?'openDayEdit':'showSchedDayModal')+'(\''+ds+'\')">'+(hasEv?'<span class="ev-mark">📌</span>':'')+'<span class="dn">'+d+'</span>'+(arr.length?'<span class="sched-cnt">'+arr.length+'名</span>':'')+(hasNote?'<span class="note-dot"></span>':'')+'</div>';
   }
   h+='</div></div>';
   return h;
