@@ -504,7 +504,7 @@ const LS_KEY = "cafeShift_v1";
 const ROOM_KEY = "cafeShift_room";
 const PREF_KEY = "cafeShift_remember";  // "1"/"0" : ログイン保持の希望
 const SESS_KEY = "cafeShift_session";   // {role, empId} : 自動ログイン用
-const APP_VERSION = "2026.07.04-52";     // ★デプロイのたびに version.json と同じ値へ上げる（開きっぱなし端末の自動更新用）
+const APP_VERSION = "2026.07.04-53";     // ★デプロイのたびに version.json と同じ値へ上げる（開きっぱなし端末の自動更新用）
 let soundOn = localStorage.getItem("cafeShift_sound")!=="0";  // 操作音 ON/OFF（この端末ごと・既定ON）
 /* 管理者ログイン通知（開発者だけ受信）。GASをデプロイしたら /exec URL をここに貼る。空なら何もしない */
 const LOGIN_NOTIFY_URL = "https://script.google.com/macros/s/AKfycbxbhtflLJNoXtsI-xe7Jw5FZfgWrVXiftQ4wIbtwkMCaBPKtH72a180RNSKkFMFKHKD/exec";
@@ -1337,18 +1337,25 @@ function staffAvailGrid(cursor, staffId){
     if(isClosed(ds)){ h+='<div class="'+cls+' closed"><span class="dn">'+d+'</span><span class="clbl">'+closeReason(ds)+'</span></div>'; continue; }
     var r=(store.avail[ds]||{})[staffId]; var mk=r?r.mk:null;
     if(mk)cls+=" "+mk;
-    var clickable=(r&&r.note)?' onclick="lsShowNote(\''+ds+'\')" style="cursor:pointer"':'';
-    h+='<div class="'+cls+'"'+clickable+'><span class="dn">'+d+'</span><span class="mk">'+(mk?MK[mk]:"")+'</span>'+((r&&r.note)?'<span class="ls-notemark">📝</span>':'')+'</div>';
+    var hasInfo=!!((store.events||{})[ds]||(store.dayNotes||{})[ds]); var hasNote=!!(r&&r.note);
+    var clickable=(hasInfo||hasNote)?' onclick="lsShowDay(\''+ds+'\')" style="cursor:pointer"':'';
+    h+='<div class="'+cls+'"'+clickable+'>'+(hasInfo?'<span class="ev-mark">📌</span>':'')+'<span class="dn">'+d+'</span><span class="mk">'+(mk?MK[mk]:"")+'</span>'+(hasNote?'<span class="ls-notemark">📝</span>':'')+'</div>';
   }
   h+='</div></div>';
   return h;
 }
-function lsShowNote(ds){
+function lsShowDay(ds){
+  var ev=(store.events||{})[ds], dn=(store.dayNotes||{})[ds];
   var r=(store.avail[ds]||{})[lsStaffId]||{};
-  if(!r.note) return;
+  if(!ev && !dn && !r.note) return;
   var dt=new Date(ds); var label=(dt.getMonth()+1)+"月"+dt.getDate()+"日 ("+WD[dt.getDay()]+")";
   var nm=(staffById(lsStaffId)||{}).name||"";
-  openModal('<h3>'+label+'</h3><p class="msub">'+esc(nm)+' さん　'+(r.mk?MK[r.mk]:"")+'</p><div class="event-box" style="margin-top:8px"><span class="eh">📝 備考</span><div class="et">'+esc(r.note)+'</div></div><button class="btn btn-primary" style="margin-top:16px" onclick="closeModal()">閉じる</button>');
+  var h='<h3>'+label+'</h3>';
+  if(ev) h+='<div class="event-box" style="margin-top:8px"><span class="eh">📌 イベント・予約</span><div class="et">'+esc(ev)+'</div></div>';
+  if(dn) h+='<div class="daynote-box" style="margin-top:8px"><span class="dnh">📢 伝達事項</span><div class="dnt">'+esc(dn)+'</div></div>';
+  if(r.note) h+='<div class="event-box" style="margin-top:8px"><span class="eh">📝 '+esc(nm)+' さんの備考'+(r.mk?'（'+MK[r.mk]+'）':'')+'</span><div class="et">'+esc(r.note)+'</div></div>';
+  h+='<button class="btn btn-primary" style="margin-top:16px" onclick="closeModal()">閉じる</button>';
+  openModal(h);
 }
 function renderLandscape(){
   var lv=document.getElementById("landscapeView"); if(!lv) return;
