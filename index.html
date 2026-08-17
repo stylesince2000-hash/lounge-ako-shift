@@ -505,7 +505,7 @@ const LS_KEY = "cafeShift_v1";
 const ROOM_KEY = "cafeShift_room";
 const PREF_KEY = "cafeShift_remember";  // "1"/"0" : ログイン保持の希望
 const SESS_KEY = "cafeShift_session";   // {role, empId} : 自動ログイン用
-const APP_VERSION = "2026.07.04-55";     // ★デプロイのたびに version.json と同じ値へ上げる（開きっぱなし端末の自動更新用）
+const APP_VERSION = "2026.07.04-56";     // ★デプロイのたびに version.json と同じ値へ上げる（開きっぱなし端末の自動更新用）
 let soundOn = localStorage.getItem("cafeShift_sound")!=="0";  // 操作音 ON/OFF（この端末ごと・既定ON）
 /* 管理者ログイン通知（開発者だけ受信）。GASをデプロイしたら /exec URL をここに貼る。空なら何もしない */
 const LOGIN_NOTIFY_URL = "https://script.google.com/macros/s/AKfycbxbhtflLJNoXtsI-xe7Jw5FZfgWrVXiftQ4wIbtwkMCaBPKtH72a180RNSKkFMFKHKD/exec";
@@ -740,39 +740,50 @@ function updateDevUI(){
 }
 /* 汎用メール通知（開発者だけ受信）。GAS側は title→件名 / body→本文 として送る */
 function nowStr(t){ var d=t?new Date(t):new Date(); return d.getFullYear()+"/"+(d.getMonth()+1)+"/"+d.getDate()+" "+String(d.getHours()).padStart(2,"0")+":"+String(d.getMinutes()).padStart(2,"0"); }
-function notify(title, body){
+function notify(title, body, useBeacon){
   if(!LOGIN_NOTIFY_URL) return;   // 未設定なら何もしない
+  var payload=JSON.stringify({secret:LOGIN_NOTIFY_SECRET, title:title, body:body});
   try{
-    fetch(LOGIN_NOTIFY_URL, {method:"POST", mode:"no-cors", headers:{"Content-Type":"text/plain;charset=UTF-8"}, body:JSON.stringify({secret:LOGIN_NOTIFY_SECRET, title:title, body:body})});
+    // 画面を閉じる/バックグラウンドへ移る瞬間は fetch が中断されるので sendBeacon で確実に送る
+    if(useBeacon && navigator.sendBeacon){ navigator.sendBeacon(LOGIN_NOTIFY_URL, new Blob([payload], {type:"text/plain;charset=UTF-8"})); }
+    else{ fetch(LOGIN_NOTIFY_URL, {method:"POST", mode:"no-cors", headers:{"Content-Type":"text/plain;charset=UTF-8"}, body:payload}); }
   }catch(e){}
 }
-/* シフト/店休の編集は高頻度なので、45秒静まってから1通にまとめて送る（スパム防止） */
+/* シフト/店休の編集は高頻度なので、少し静まってから1通にまとめて送る（スパム防止）。
+   ただし送信前にアプリを閉じても消えないよう、非表示/離脱時に flushNotifications() で即送信する。 */
 var _editTimer=null,_editItems=[];
+function _sendEdit(useBeacon){
+  if(!_editItems.length) return;
+  var body=nowStr()+" に管理者がシフト／店休を変更しました。\n\n【変更内容（"+_editItems.length+"件）】\n・"+_editItems.join("\n・")+"\n\n最新はアプリでご確認ください。";
+  notify("シフト・店休の更新", body, useBeacon);
+  _editItems=[];
+}
 function notifyEdit(desc){
   if(!LOGIN_NOTIFY_URL) return;
   if(desc) _editItems.push(desc);
   clearTimeout(_editTimer);
-  _editTimer=setTimeout(function(){
-    if(!_editItems.length) return;
-    var body=nowStr()+" に管理者がシフト／店休を変更しました。\n\n【変更内容（"+_editItems.length+"件）】\n・"+_editItems.join("\n・")+"\n\n最新はアプリでご確認ください。";
-    notify("シフト・店休の更新", body);
-    _editItems=[];
-  }, 45000);
+  _editTimer=setTimeout(function(){ _sendEdit(false); }, 20000);
 }
-/* 特定スタッフ(NOTIFY_STAFF)の希望変更を45秒まとめて通知 */
+/* 特定スタッフ(NOTIFY_STAFF)の希望変更をまとめて通知 */
 var _empEditTimer=null,_empEditItems=[],_empEditName="";
+function _sendEmp(useBeacon){
+  if(!_empEditItems.length) return;
+  var body=nowStr()+" に "+_empEditName+" さんが希望を変更しました。\n\n【変更内容（"+_empEditItems.length+"件）】\n・"+_empEditItems.join("\n・")+"\n\n最新はアプリでご確認ください。";
+  notify(_empEditName+" さんの希望変更", body, useBeacon);
+  _empEditItems=[];
+}
 function notifyEmpChange(name, desc){
   if(!LOGIN_NOTIFY_URL) return;
   if(NOTIFY_STAFF.indexOf(name)<0) return;   // 対象スタッフ以外は通知しない
   _empEditName=name;
   if(desc) _empEditItems.push(desc);
   clearTimeout(_empEditTimer);
-  _empEditTimer=setTimeout(function(){
-    if(!_empEditItems.length) return;
-    var body=nowStr()+" に "+_empEditName+" さんが希望を変更しました。\n\n【変更内容（"+_empEditItems.length+"件）】\n・"+_empEditItems.join("\n・")+"\n\n最新はアプリでご確認ください。";
-    notify(_empEditName+" さんの希望変更", body);
-    _empEditItems=[];
-  }, 45000);
+  _empEditTimer=setTimeout(function(){ _sendEmp(false); }, 20000);
+}
+/* 未送信の通知をまとめて即送信（画面を閉じる/バックグラウンドへ移る時に呼ぶ） */
+function flushNotifications(useBeacon){
+  clearTimeout(_editTimer); clearTimeout(_empEditTimer);
+  _sendEdit(useBeacon); _sendEmp(useBeacon);
 }
 function empChangeName(){ return (staffById(currentEmpId)||{}).name||""; }
 function recordLogin(roleIn, dev){
@@ -1906,6 +1917,9 @@ window.addEventListener("focus",checkForUpdate);
 window.addEventListener("pageshow",function(e){ if(e.persisted) checkForUpdate(); });
 setInterval(function(){ if(document.hidden) checkForUpdate(); },180000);  // 3分ごと（非表示時のみリロード）
 setTimeout(checkForUpdate,4000);
+/* 未送信のメール通知を、画面を閉じる/バックグラウンドへ移る瞬間に確実に送る（sendBeacon） */
+document.addEventListener("visibilitychange",function(){ if(document.hidden) flushNotifications(true); });
+window.addEventListener("pagehide", function(){ flushNotifications(true); });
 
 /* ===================== INIT ===================== */
 ["pwInput","setEmpPw","setAdminPw"].forEach(id=>{
