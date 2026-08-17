@@ -302,7 +302,6 @@ input.pin::placeholder{letter-spacing:10px}
 .ls-calhead{font-size:14px;color:var(--espresso);margin-bottom:6px}
 .ls-cnt{color:var(--muted);font-size:12.5px;margin-left:8px;white-space:nowrap}
 .ls-cal .cal .day{aspect-ratio:auto;min-height:44px}
-.ls-cal .cal .day.ls-added{box-shadow:inset 0 0 0 2px var(--green)}
 .ls-notemark{position:absolute;top:1px;right:2px;font-size:11px;line-height:1;pointer-events:none}
 .day .ls-add{position:absolute;bottom:1px;left:50%;transform:translateX(-50%);font-size:8px;font-weight:800;color:#fff;background:var(--green);border-radius:5px;padding:0 4px;line-height:1.5;pointer-events:none;white-space:nowrap}
 @media (orientation:portrait){#landscapeView{display:none !important}}
@@ -506,7 +505,7 @@ const LS_KEY = "cafeShift_v1";
 const ROOM_KEY = "cafeShift_room";
 const PREF_KEY = "cafeShift_remember";  // "1"/"0" : ログイン保持の希望
 const SESS_KEY = "cafeShift_session";   // {role, empId} : 自動ログイン用
-const APP_VERSION = "2026.07.04-54";     // ★デプロイのたびに version.json と同じ値へ上げる（開きっぱなし端末の自動更新用）
+const APP_VERSION = "2026.07.04-55";     // ★デプロイのたびに version.json と同じ値へ上げる（開きっぱなし端末の自動更新用）
 let soundOn = localStorage.getItem("cafeShift_sound")!=="0";  // 操作音 ON/OFF（この端末ごと・既定ON）
 /* 管理者ログイン通知（開発者だけ受信）。GASをデプロイしたら /exec URL をここに貼る。空なら何もしない */
 const LOGIN_NOTIFY_URL = "https://script.google.com/macros/s/AKfycbxbhtflLJNoXtsI-xe7Jw5FZfgWrVXiftQ4wIbtwkMCaBPKtH72a180RNSKkFMFKHKD/exec";
@@ -1338,13 +1337,13 @@ function staffAvailGrid(cursor, staffId){
     var cls="day"; if(dow===0)cls+=" sun"; if(dow===6)cls+=" sat"; if(ds===todayStr)cls+=" today";
     if(isClosed(ds)){ h+='<div class="'+cls+' closed"><span class="dn">'+d+'</span><span class="clbl">'+closeReason(ds)+'</span></div>'; continue; }
     var r=(store.avail[ds]||{})[staffId]; var mk=r?r.mk:null;
-    if(mk)cls+=" "+mk;
     var sched=(store.schedule[ds]||[]).indexOf(staffId)>=0;
     var added=sched && (!mk || mk==="batsu");   // 確定シフトに入っているが○希望でない＝追加出勤
-    if(added)cls+=" ls-added";
+    var dispMk=added?"maru":mk;                 // 追加出勤は○（出勤）と同じ色・表示に
+    if(dispMk)cls+=" "+dispMk;
     var hasInfo=!!((store.events||{})[ds]||(store.dayNotes||{})[ds]); var hasNote=!!(r&&r.note);
     var clickable=(hasInfo||hasNote||added)?' onclick="lsShowDay(\''+ds+'\')" style="cursor:pointer"':'';
-    h+='<div class="'+cls+'"'+clickable+'>'+(hasInfo?'<span class="ev-mark">📌</span>':'')+'<span class="dn">'+d+'</span><span class="mk">'+(mk?MK[mk]:"")+'</span>'+(added?'<span class="ls-add">追加</span>':'')+(hasNote?'<span class="ls-notemark">📝</span>':'')+'</div>';
+    h+='<div class="'+cls+'"'+clickable+'>'+(hasInfo?'<span class="ev-mark">📌</span>':'')+'<span class="dn">'+d+'</span><span class="mk">'+(dispMk?MK[dispMk]:"")+'</span>'+(added?'<span class="ls-add">追加</span>':'')+(hasNote?'<span class="ls-notemark">📝</span>':'')+'</div>';
   }
   h+='</div></div>';
   return h;
