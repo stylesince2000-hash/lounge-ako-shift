@@ -505,7 +505,7 @@ const LS_KEY = "cafeShift_v1";
 const ROOM_KEY = "cafeShift_room";
 const PREF_KEY = "cafeShift_remember";  // "1"/"0" : ログイン保持の希望
 const SESS_KEY = "cafeShift_session";   // {role, empId} : 自動ログイン用
-const APP_VERSION = "2026.07.04-60";     // ★デプロイのたびに version.json と同じ値へ上げる（開きっぱなし端末の自動更新用）
+const APP_VERSION = "2026.07.04-61";     // ★デプロイのたびに version.json と同じ値へ上げる（開きっぱなし端末の自動更新用）
 let soundOn = localStorage.getItem("cafeShift_sound")!=="0";  // 操作音 ON/OFF（この端末ごと・既定ON）
 /* 管理者ログイン通知（開発者だけ受信）。GASをデプロイしたら /exec URL をここに貼る。空なら何もしない */
 const LOGIN_NOTIFY_URL = "https://script.google.com/macros/s/AKfycbxbhtflLJNoXtsI-xe7Jw5FZfgWrVXiftQ4wIbtwkMCaBPKtH72a180RNSKkFMFKHKD/exec";
@@ -1570,20 +1570,21 @@ function weekShiftText(offset){
     const dt=new Date(ds);
     const head="■ "+(dt.getMonth()+1)+"/"+dt.getDate()+"("+WD[dt.getDay()]+")";
     const ev=(store.events||{})[ds], dn=(store.dayNotes||{})[ds];
-    const bl=[];
-    if(isClosed(ds)){
-      bl.push(head+" 🚫"+closeReason(ds));
-    } else {
-      // 確定メンバー（備考があれば「名前（備考）」で全部入り）
+    // 見出し行：日付の横にイベント・連絡事項を先に出す
+    let hl=head;
+    if(isClosed(ds)) hl+=" 🚫"+closeReason(ds);
+    if(ev) hl+="　📌"+ev;
+    if(dn) hl+="　📢"+dn;
+    const bl=[hl];
+    if(!isClosed(ds)){
+      // 確定メンバー（備考があれば「名前（備考）」で全部入り）を下の行に
       const arr=(store.schedule[ds]||[]).map(function(sid){
         const nm=(staffById(sid)||{}).name; if(!nm) return null;
         const note=(((store.avail[ds]||{})[sid])||{}).note;
         return note ? (nm+"（"+note.replace(/\s+/g," ").trim()+"）") : nm;
       }).filter(Boolean);
-      bl.push(head+" "+(arr.length?arr.join("、"):"（未定）"));
+      bl.push("　"+(arr.length?arr.join("、"):"（未定）"));
     }
-    if(ev) bl.push("　📌"+ev);
-    if(dn) bl.push("　📢"+dn);
     blocks.push(bl.join("\n"));
   });
   lines.push(blocks.join("\n\n"));   // ← 各日の間に空行
