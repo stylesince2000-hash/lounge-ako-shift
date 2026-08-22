@@ -505,7 +505,7 @@ const LS_KEY = "cafeShift_v1";
 const ROOM_KEY = "cafeShift_room";
 const PREF_KEY = "cafeShift_remember";  // "1"/"0" : ログイン保持の希望
 const SESS_KEY = "cafeShift_session";   // {role, empId} : 自動ログイン用
-const APP_VERSION = "2026.07.04-56";     // ★デプロイのたびに version.json と同じ値へ上げる（開きっぱなし端末の自動更新用）
+const APP_VERSION = "2026.07.04-57";     // ★デプロイのたびに version.json と同じ値へ上げる（開きっぱなし端末の自動更新用）
 let soundOn = localStorage.getItem("cafeShift_sound")!=="0";  // 操作音 ON/OFF（この端末ごと・既定ON）
 /* 管理者ログイン通知（開発者だけ受信）。GASをデプロイしたら /exec URL をここに貼る。空なら何もしない */
 const LOGIN_NOTIFY_URL = "https://script.google.com/macros/s/AKfycbxbhtflLJNoXtsI-xe7Jw5FZfgWrVXiftQ4wIbtwkMCaBPKtH72a180RNSKkFMFKHKD/exec";
@@ -762,7 +762,7 @@ function notifyEdit(desc){
   if(!LOGIN_NOTIFY_URL) return;
   if(desc) _editItems.push(desc);
   clearTimeout(_editTimer);
-  _editTimer=setTimeout(function(){ _sendEdit(false); }, 20000);
+  _editTimer=setTimeout(function(){ _sendEdit(false); }, 6000);
 }
 /* 特定スタッフ(NOTIFY_STAFF)の希望変更をまとめて通知 */
 var _empEditTimer=null,_empEditItems=[],_empEditName="";
@@ -778,7 +778,7 @@ function notifyEmpChange(name, desc){
   _empEditName=name;
   if(desc) _empEditItems.push(desc);
   clearTimeout(_empEditTimer);
-  _empEditTimer=setTimeout(function(){ _sendEmp(false); }, 20000);
+  _empEditTimer=setTimeout(function(){ _sendEmp(false); }, 6000);
 }
 /* 未送信の通知をまとめて即送信（画面を閉じる/バックグラウンドへ移る時に呼ぶ） */
 function flushNotifications(useBeacon){
