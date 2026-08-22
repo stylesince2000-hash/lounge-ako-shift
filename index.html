@@ -505,7 +505,7 @@ const LS_KEY = "cafeShift_v1";
 const ROOM_KEY = "cafeShift_room";
 const PREF_KEY = "cafeShift_remember";  // "1"/"0" : ログイン保持の希望
 const SESS_KEY = "cafeShift_session";   // {role, empId} : 自動ログイン用
-const APP_VERSION = "2026.07.04-57";     // ★デプロイのたびに version.json と同じ値へ上げる（開きっぱなし端末の自動更新用）
+const APP_VERSION = "2026.07.04-58";     // ★デプロイのたびに version.json と同じ値へ上げる（開きっぱなし端末の自動更新用）
 let soundOn = localStorage.getItem("cafeShift_sound")!=="0";  // 操作音 ON/OFF（この端末ごと・既定ON）
 /* 管理者ログイン通知（開発者だけ受信）。GASをデプロイしたら /exec URL をここに貼る。空なら何もしない */
 const LOGIN_NOTIFY_URL = "https://script.google.com/macros/s/AKfycbxbhtflLJNoXtsI-xe7Jw5FZfgWrVXiftQ4wIbtwkMCaBPKtH72a180RNSKkFMFKHKD/exec";
@@ -1567,12 +1567,24 @@ function weekShiftText(offset){
   dates.forEach(function(ds){
     const dt=new Date(ds);
     const head=(dt.getMonth()+1)+"/"+dt.getDate()+"("+WD[dt.getDay()]+")";
-    if(isClosed(ds)){ lines.push(head+" 🚫"+closeReason(ds)); return; }
-    const arr=(store.schedule[ds]||[]).map(function(sid){return (staffById(sid)||{}).name;}).filter(Boolean);
+    const ev=(store.events||{})[ds], dn=(store.dayNotes||{})[ds];
+    if(isClosed(ds)){
+      lines.push(head+" 🚫"+closeReason(ds));
+      if(ev) lines.push("　📌"+ev);
+      if(dn) lines.push("　📢"+dn);
+      return;
+    }
+    // 確定メンバー（備考があれば「名前（備考）」で全部入り）
+    const arr=(store.schedule[ds]||[]).map(function(sid){
+      const nm=(staffById(sid)||{}).name; if(!nm) return null;
+      const note=(((store.avail[ds]||{})[sid])||{}).note;
+      return note ? (nm+"（"+note.replace(/\s+/g," ").trim()+"）") : nm;
+    }).filter(Boolean);
     lines.push(head+" "+(arr.length?arr.join("、"):"（未定）"));
-    const ev=(store.events||{})[ds]; if(ev) lines.push("　📌"+ev);
+    if(ev) lines.push("　📌"+ev);
+    if(dn) lines.push("　📢"+dn);
   });
-  if(store.notice && store.notice.trim()){ lines.push(""); lines.push("📢"+store.notice.trim()); }
+  if(store.notice && store.notice.trim()){ lines.push(""); lines.push("📢（全体）"+store.notice.trim()); }
   lines.push("");
   lines.push("詳細はシフトアプリで確認してください");
   return lines.join("\n");
