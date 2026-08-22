@@ -505,7 +505,7 @@ const LS_KEY = "cafeShift_v1";
 const ROOM_KEY = "cafeShift_room";
 const PREF_KEY = "cafeShift_remember";  // "1"/"0" : ログイン保持の希望
 const SESS_KEY = "cafeShift_session";   // {role, empId} : 自動ログイン用
-const APP_VERSION = "2026.07.04-58";     // ★デプロイのたびに version.json と同じ値へ上げる（開きっぱなし端末の自動更新用）
+const APP_VERSION = "2026.07.04-59";     // ★デプロイのたびに version.json と同じ値へ上げる（開きっぱなし端末の自動更新用）
 let soundOn = localStorage.getItem("cafeShift_sound")!=="0";  // 操作音 ON/OFF（この端末ごと・既定ON）
 /* 管理者ログイン通知（開発者だけ受信）。GASをデプロイしたら /exec URL をここに貼る。空なら何もしない */
 const LOGIN_NOTIFY_URL = "https://script.google.com/macros/s/AKfycbxbhtflLJNoXtsI-xe7Jw5FZfgWrVXiftQ4wIbtwkMCaBPKtH72a180RNSKkFMFKHKD/exec";
@@ -1563,29 +1563,32 @@ function weekShiftText(offset){
   const lines=[];
   lines.push("【Lounge亜子 シフト】"+(offset?"来週":"今週"));
   lines.push((a.getMonth()+1)+"/"+a.getDate()+"(月)〜"+(b.getMonth()+1)+"/"+b.getDate()+"(日)");
-  lines.push("");
+  lines.push("――――――――――");
+  // 日ごとにブロック化し、空行で区切って「どの日の情報か」を分かりやすくする
+  const blocks=[];
   dates.forEach(function(ds){
     const dt=new Date(ds);
-    const head=(dt.getMonth()+1)+"/"+dt.getDate()+"("+WD[dt.getDay()]+")";
+    const head="■ "+(dt.getMonth()+1)+"/"+dt.getDate()+"("+WD[dt.getDay()]+")";
     const ev=(store.events||{})[ds], dn=(store.dayNotes||{})[ds];
+    const bl=[];
     if(isClosed(ds)){
-      lines.push(head+" 🚫"+closeReason(ds));
-      if(ev) lines.push("　📌"+ev);
-      if(dn) lines.push("　📢"+dn);
-      return;
+      bl.push(head+" 🚫"+closeReason(ds));
+    } else {
+      // 確定メンバー（備考があれば「名前（備考）」で全部入り）
+      const arr=(store.schedule[ds]||[]).map(function(sid){
+        const nm=(staffById(sid)||{}).name; if(!nm) return null;
+        const note=(((store.avail[ds]||{})[sid])||{}).note;
+        return note ? (nm+"（"+note.replace(/\s+/g," ").trim()+"）") : nm;
+      }).filter(Boolean);
+      bl.push(head+" "+(arr.length?arr.join("、"):"（未定）"));
     }
-    // 確定メンバー（備考があれば「名前（備考）」で全部入り）
-    const arr=(store.schedule[ds]||[]).map(function(sid){
-      const nm=(staffById(sid)||{}).name; if(!nm) return null;
-      const note=(((store.avail[ds]||{})[sid])||{}).note;
-      return note ? (nm+"（"+note.replace(/\s+/g," ").trim()+"）") : nm;
-    }).filter(Boolean);
-    lines.push(head+" "+(arr.length?arr.join("、"):"（未定）"));
-    if(ev) lines.push("　📌"+ev);
-    if(dn) lines.push("　📢"+dn);
+    if(ev) bl.push("　📌"+ev);
+    if(dn) bl.push("　📢"+dn);
+    blocks.push(bl.join("\n"));
   });
-  if(store.notice && store.notice.trim()){ lines.push(""); lines.push("📢（全体）"+store.notice.trim()); }
-  lines.push("");
+  lines.push(blocks.join("\n\n"));   // ← 各日の間に空行
+  if(store.notice && store.notice.trim()){ lines.push("――――――――――"); lines.push("📢（全体）"+store.notice.trim()); }
+  lines.push("――――――――――");
   lines.push("詳細はシフトアプリで確認してください");
   return lines.join("\n");
 }
