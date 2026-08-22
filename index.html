@@ -505,7 +505,7 @@ const LS_KEY = "cafeShift_v1";
 const ROOM_KEY = "cafeShift_room";
 const PREF_KEY = "cafeShift_remember";  // "1"/"0" : ログイン保持の希望
 const SESS_KEY = "cafeShift_session";   // {role, empId} : 自動ログイン用
-const APP_VERSION = "2026.07.04-59";     // ★デプロイのたびに version.json と同じ値へ上げる（開きっぱなし端末の自動更新用）
+const APP_VERSION = "2026.07.04-60";     // ★デプロイのたびに version.json と同じ値へ上げる（開きっぱなし端末の自動更新用）
 let soundOn = localStorage.getItem("cafeShift_sound")!=="0";  // 操作音 ON/OFF（この端末ごと・既定ON）
 /* 管理者ログイン通知（開発者だけ受信）。GASをデプロイしたら /exec URL をここに貼る。空なら何もしない */
 const LOGIN_NOTIFY_URL = "https://script.google.com/macros/s/AKfycbxbhtflLJNoXtsI-xe7Jw5FZfgWrVXiftQ4wIbtwkMCaBPKtH72a180RNSKkFMFKHKD/exec";
@@ -1561,7 +1561,7 @@ function weekShiftText(offset){
   const dates=weekDates(offset);
   const a=new Date(dates[0]), b=new Date(dates[6]);
   const lines=[];
-  lines.push("【Lounge亜子 シフト】"+(offset?"来週":"今週"));
+  lines.push("【Lounge亜子 シフト】");
   lines.push((a.getMonth()+1)+"/"+a.getDate()+"(月)〜"+(b.getMonth()+1)+"/"+b.getDate()+"(日)");
   lines.push("――――――――――");
   // 日ごとにブロック化し、空行で区切って「どの日の情報か」を分かりやすくする
